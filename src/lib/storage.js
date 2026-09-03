@@ -9,7 +9,10 @@
  */
 import { Capacitor } from "@capacitor/core";
 
-const WEB_KEY = "track.v1";
+const WEB_KEY = "rozkharcha.v1";
+/* The app shipped as "Track" first; anything saved under the old key is moved over
+   on first read so a rename never costs someone their expenses. */
+const LEGACY_WEB_KEY = "track.v1";
 const FILE = "expenses.json";
 const SAVE_DELAY = 200;
 
@@ -32,7 +35,15 @@ export async function readDoc() {
       });
       return JSON.parse(res.data);
     }
-    const raw = localStorage.getItem(WEB_KEY);
+    let raw = localStorage.getItem(WEB_KEY);
+    if (raw === null) {
+      const legacy = localStorage.getItem(LEGACY_WEB_KEY);
+      if (legacy !== null) {
+        localStorage.setItem(WEB_KEY, legacy);
+        localStorage.removeItem(LEGACY_WEB_KEY);
+        raw = legacy;
+      }
+    }
     return raw ? JSON.parse(raw) : null;
   } catch {
     // Missing file on first launch, or corrupt JSON — the caller seeds a fresh doc.

@@ -58,6 +58,14 @@ export function dayLabel(dayKey) {
   return format(date, sameYear ? "EEE, d MMM" : "EEE, d MMM yyyy");
 }
 
+/** "3 Sep" (or "3 Sep 2025" in another year) — an absolute date, so the picker
+    never just echoes the Today/Yesterday chip beside it. */
+export function shortDayLabel(dayKey) {
+  const date = fromKey(dayKey);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return format(date, sameYear ? "d MMM" : "d MMM yyyy");
+}
+
 export function fullDayLabel(dayKey) {
   return format(fromKey(dayKey), "d MMMM yyyy");
 }

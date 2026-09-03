@@ -18,7 +18,8 @@ export function emptyDoc() {
     settings: {
       currency: DEFAULT_CURRENCY,
       monthlyBudget: 0,
-      theme: "system",
+      // Defaults to the white theme; System and Dark stay available in Settings.
+      theme: "light",
     },
   };
 }
@@ -49,7 +50,7 @@ export function migrate(raw) {
     settings: {
       currency: typeof s.currency === "string" && s.currency ? s.currency : base.settings.currency,
       monthlyBudget: Number.isFinite(budget) && budget > 0 ? round2(budget) : 0,
-      theme: ["system", "light", "dark"].includes(s.theme) ? s.theme : "system",
+      theme: ["system", "light", "dark"].includes(s.theme) ? s.theme : base.settings.theme,
     },
   };
 }

@@ -15,7 +15,7 @@ const THEMES = [
   { id: "dark", label: "Dark", icon: "moon" },
 ];
 
-export default function SettingsScreen({ onToast, budgetSheetOpen, onBudgetSheetChange }) {
+export default function SettingsScreen({ install, onToast, budgetSheetOpen, onBudgetSheetChange }) {
   const { doc, expenses, settings, currency, saveSettings, replaceDoc } = useExpenses();
   const [clearStep, setClearStep] = useState(0);
   const [busy, setBusy] = useState(null);
@@ -91,6 +91,48 @@ export default function SettingsScreen({ onToast, budgetSheetOpen, onBudgetSheet
           <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
         </button>
       </div>
+
+      {/* Install — only while the browser is actually offering it */}
+      {(install?.canInstall || install?.needsManualInstall) && (
+        <>
+          <h2 className="section-title">App</h2>
+          <div className="card setting-list">
+            {install.canInstall ? (
+              <button
+                type="button"
+                className="setting-row"
+                onClick={async () => {
+                  const outcome = await install.promptInstall();
+                  if (outcome === "accepted") onToast("Installing Roz Kharcha…");
+                }}
+              >
+                <span className="cat cat--sm" style={{ "--cat-color": "var(--accent)" }}>
+                  <Icon name="download" />
+                </span>
+                <span className="grow setting-row__text">
+                  <span className="setting-row__label">Install on this phone</span>
+                  <span className="setting-row__hint">
+                    Adds it to your home screen and works with no internet
+                  </span>
+                </span>
+                <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
+              </button>
+            ) : (
+              <div className="setting-row" style={{ pointerEvents: "none" }}>
+                <span className="cat cat--sm" style={{ "--cat-color": "var(--accent)" }}>
+                  <Icon name="download" />
+                </span>
+                <span className="grow setting-row__text">
+                  <span className="setting-row__label">Add to Home Screen</span>
+                  <span className="setting-row__hint">
+                    In Safari, tap Share, then &ldquo;Add to Home Screen&rdquo;
+                  </span>
+                </span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Appearance */}
       <h2 className="section-title">Appearance</h2>
@@ -246,7 +288,7 @@ export default function SettingsScreen({ onToast, budgetSheetOpen, onBudgetSheet
       <p className="footnote">
         Everything is stored on this phone only. No account, no internet, no sync.
         <br />
-        Track · v1.0
+        Roz Kharcha · v1.0
       </p>
 
       {budgetSheetOpen && (

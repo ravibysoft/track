@@ -1,5 +1,5 @@
 {
-  "name": "track",
+  "name": "rozkharcha",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,8 +9,10 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "smoke": "vite build --ssr scripts/smoke.jsx --outDir .smoke --logLevel error && node .smoke/smoke.js",
-    "apk": "vite build && cap sync android && android\\gradlew.bat -p android assembleDebug",
-    "apk:release": "vite build && cap sync android && android\\gradlew.bat -p android assembleRelease"
+    "apk": "vite build && cap sync android && node scripts/brand-android.mjs && node scripts/generate-icons.mjs && android\\gradlew.bat -p android assembleDebug",
+    "apk:release": "vite build && cap sync android && node scripts/brand-android.mjs && node scripts/generate-icons.mjs && android\\gradlew.bat -p android assembleRelease",
+    "icons": "node scripts/generate-icons.mjs",
+    "android:brand": "node scripts/brand-android.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.1",
@@ -32,6 +34,9 @@
     "@vitejs/plugin-react": "^6.1.0",
     "jsdom": "^30.0.1",
     "oxlint": "^1.79.0",
-    "vite": "^8.2.2"
-  }
+    "sharp": "^0.35.4",
+    "vite": "^8.2.2",
+    "vite-plugin-pwa": "^1.3.0"
+  },
+  "description": "Offline daily expense tracker. All data stays on your phone."
 }

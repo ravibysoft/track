@@ -19,12 +19,10 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: var(--sp-5);
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--accent) 12%, var(--surface)),
-    var(--surface) 62%
-  );
+  padding: var(--sp-6) var(--sp-5);
+  /* No tint — on a white ground the hero earns its emphasis from the size of the
+     number and the space around it, not from a wash of colour. */
+  background: var(--surface);
 }
 
 .hero__label {
@@ -36,7 +34,7 @@
 }
 
 .hero__amount {
-  font-size: 38px;
+  font-size: 40px;
   font-weight: 720;
   letter-spacing: -0.035em;
   line-height: 1.12;
@@ -243,12 +241,22 @@
 }
 
 .amount-input__field {
-  width: 100%;
-  max-width: 260px;
+  /* Grows with what is typed so the "₹" and the number stay centred as a pair.
+     Browsers without field-sizing fall back to the intrinsic input width. */
+  width: auto;
+  field-sizing: content;
+  min-width: 2ch;
+  max-width: 100%;
   font-size: 46px;
   font-weight: 720;
   letter-spacing: -0.04em;
   text-align: left;
+}
+
+/* The amount field is unmistakably the focused element — a focus box around a
+   46px number just looks like a stray border. */
+.amount-input__field:focus-visible {
+  outline: none;
 }
 
 .amount-input__field::placeholder {
@@ -267,6 +275,9 @@
 .cat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
+  /* Equal rows, so a two-line label like "Bills & Recharge" doesn't make the
+     first row taller than the second. */
+  grid-auto-rows: 1fr;
   gap: var(--sp-2);
 }
 
@@ -549,4 +560,56 @@
   font-size: 12px;
   line-height: 1.6;
   color: var(--text-faint);
+}
+
+/* ---------- Install nudge ---------- */
+.install-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface);
+  /* An accent hairline is enough to mark this as the one promoted card. */
+  border-color: color-mix(in srgb, var(--accent) 32%, var(--border));
+  animation: install-in 0.35s var(--ease-out) both;
+}
+
+@keyframes install-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.install-card__icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+}
+
+.install-card__title {
+  font-size: 14.5px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+}
+
+.install-card__text {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
+
+.install-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+}
+
+.install-card__cta {
+  min-height: 36px;
+  padding: 0 var(--sp-4);
+  font-size: 13.5px;
 }

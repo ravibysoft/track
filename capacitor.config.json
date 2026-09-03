@@ -1,9 +1,9 @@
 {
-  "appId": "com.ravi.expensetracker",
-  "appName": "Track",
+  "appId": "app.rozkharcha",
+  "appName": "Roz Kharcha",
   "webDir": "dist",
   "android": {
-    "backgroundColor": "#0b0c10",
+    "backgroundColor": "#ffffff",
     "allowMixedContent": false,
     "webContentsDebuggingEnabled": false
   },

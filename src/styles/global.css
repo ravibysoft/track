@@ -93,7 +93,9 @@ ol {
 .screen {
   flex: 1;
   padding: 0 var(--sp-4);
-  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-6));
+  /* Clears the tab bar *and* the 56px FAB that floats above it, so the last row
+     in a list is never hidden behind either. */
+  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 88px);
   animation: screen-in 0.26s var(--ease-out) both;
 }
 
@@ -258,7 +260,7 @@ ol {
   width: 42px;
   height: 42px;
   border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--cat-color) 15%, transparent);
+  background: color-mix(in srgb, var(--cat-color) 13%, transparent);
   color: var(--cat-color);
 }
 

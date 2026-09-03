@@ -3,12 +3,13 @@ import BudgetBar from "../components/BudgetBar.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ExpenseRow from "../components/ExpenseRow.jsx";
 import Icon from "../components/Icon.jsx";
+import InstallCard from "../components/InstallCard.jsx";
 import * as db from "../lib/db.js";
 import { currentMonthKey, fullDayLabel, todayKey, weekRange } from "../lib/dates.js";
 import { formatMoney } from "../lib/money.js";
 import { useExpenses } from "../state/useExpenses.js";
 
-export default function HomeScreen({ onAdd, onEdit, onDelete, onOpenSettings }) {
+export default function HomeScreen({ install, onAdd, onEdit, onDelete, onOpenSettings }) {
   const { expenses, settings, currency } = useExpenses();
 
   const stats = useMemo(() => {
@@ -65,6 +66,12 @@ export default function HomeScreen({ onAdd, onEdit, onDelete, onOpenSettings }) 
           onSetBudget={onOpenSettings}
         />
       </div>
+
+      {install?.canInstall && (
+        <div style={{ marginTop: "var(--sp-3)" }}>
+          <InstallCard onInstall={install.promptInstall} />
+        </div>
+      )}
 
       <h2 className="section-title">
         <span>Today's expenses</span>

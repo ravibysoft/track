@@ -3,7 +3,7 @@ import CategoryIcon from "../components/CategoryIcon.jsx";
 import Icon from "../components/Icon.jsx";
 import Sheet from "../components/Sheet.jsx";
 import { CATEGORIES, DEFAULT_CATEGORY, PAYMENT_MODES } from "../lib/categories.js";
-import { dayLabel, todayKey, toKey } from "../lib/dates.js";
+import { shortDayLabel, todayKey, toKey } from "../lib/dates.js";
 import { formatMoney, parseAmount } from "../lib/money.js";
 
 function yesterdayKey() {
@@ -140,7 +140,7 @@ export default function ExpenseFormSheet({ expense, currency, onSave, onDelete, 
               </button>
               <label className="date-field grow">
                 <Icon name="calendar" size={16} />
-                <span className="grow">{dayLabel(date)}</span>
+                <span className="grow">{shortDayLabel(date)}</span>
                 <input
                   type="date"
                   value={date}

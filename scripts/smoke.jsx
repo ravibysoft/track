@@ -115,7 +115,7 @@ const settle = (ms = 280) => act(async () => { await new Promise((r) => setTimeo
 /* ---------- Pure-function edge cases ---------- */
 const { formatMoney, parseAmount, formatCompact } = await import("../src/lib/money.js");
 const { buildCsv, buildJson } = await import("../src/lib/backup.js");
-const { dayLabel, monthDays, shiftMonth, toKey } = await import("../src/lib/dates.js");
+const { dayLabel, monthDays, shiftMonth, toKey, todayKey } = await import("../src/lib/dates.js");
 
 console.log("\nAmount parsing & formatting");
 check("rejects empty input", parseAmount("") === null);
@@ -184,7 +184,7 @@ check("row shows the note", text(".row__title") === "Lunch at office", `got "${t
 check("row shows ₹250.50", text(".row__amount") === "₹250.50", `got "${text(".row__amount")}"`);
 check("today's total updates", text(".hero__amount") === "₹250.50", `got "${text(".hero__amount")}"`);
 check("confirmation toast shows", text(".snackbar").includes("Expense added"));
-check("persisted to storage", (localStorage.getItem("track.v1") ?? "").includes("Lunch at office"));
+check("persisted to storage", (localStorage.getItem("rozkharcha.v1") ?? "").includes("Lunch at office"));
 
 console.log("\nIndian digit grouping");
 await click($(".fab"), "FAB");
@@ -288,5 +288,29 @@ check("total survives a reload", text(".hero__amount") === "₹1,25,700", `got "
 check("budget survives a reload", !!$(".budget__track"));
 check("theme survives a reload", document.documentElement.getAttribute("data-theme") === "dark");
 
+
+console.log("");
+console.log("Legacy key migration");
+await act(async () => root2.unmount());
+localStorage.removeItem("rozkharcha.v1");
+localStorage.setItem(
+  "track.v1",
+  JSON.stringify({
+    version: 1,
+    settings: { currency: "₹", monthlyBudget: 0, theme: "system" },
+    expenses: [
+      { id: "legacy-1", amount: 99, categoryId: "travel", note: "Old auto fare",
+        date: todayKey(), paymentMode: "cash", createdAt: "x", updatedAt: "x" },
+    ],
+  }),
+);
+const root3 = createRoot(document.getElementById("root"));
+await act(async () => {
+  root3.render(createElement(StrictMode, null, createElement(ExpenseProvider, null, createElement(App))));
+});
+await settle();
+check("data saved under the old name still loads", !!byText(".row__title", "Old auto fare"));
+check("it moved to the new key", (localStorage.getItem("rozkharcha.v1") ?? "").includes("Old auto fare"));
+check("the old key is cleaned up", localStorage.getItem("track.v1") === null);
 console.log(`\n${checks - failures}/${checks} checks passed\n`);
 process.exit(failures === 0 ? 0 : 1);

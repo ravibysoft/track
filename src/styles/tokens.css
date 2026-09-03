@@ -3,17 +3,18 @@
 :root {
   color-scheme: light;
 
-  /* Surfaces & text */
-  --bg: #f2f3f8;
-  --bg-grad: radial-gradient(120% 80% at 50% -10%, #e6e7f5 0%, #f2f3f8 55%);
+  /* Surfaces & text — a true white ground. Cards are the same white as the page,
+     so separation comes from hairline borders and space, not from grey fills. */
+  --bg: #ffffff;
+  --bg-grad: none;
   --surface: #ffffff;
-  --surface-2: #f6f7fb;
-  --surface-3: #eceef5;
-  --text: #14151a;
-  --text-dim: #6a6f80;
-  --text-faint: #9aa0b2;
-  --border: rgba(20, 21, 26, 0.09);
-  --border-strong: rgba(20, 21, 26, 0.16);
+  --surface-2: #f7f8fa;
+  --surface-3: #eef0f4;
+  --text: #0d0e12;
+  --text-dim: #666d7d;
+  --text-faint: #9aa1b0;
+  --border: rgba(13, 14, 18, 0.09);
+  --border-strong: rgba(13, 14, 18, 0.16);
 
   /* Brand */
   --accent: #5b5bd6;
@@ -27,11 +28,11 @@
   --danger: #dc2626;
   --danger-soft: rgba(220, 38, 38, 0.1);
 
-  /* Elevation */
-  --shadow-1: 0 1px 2px rgba(16, 18, 30, 0.06), 0 1px 3px rgba(16, 18, 30, 0.04);
-  --shadow-2: 0 4px 12px rgba(16, 18, 30, 0.08), 0 1px 3px rgba(16, 18, 30, 0.05);
-  --shadow-3: 0 12px 32px rgba(16, 18, 30, 0.16), 0 2px 8px rgba(16, 18, 30, 0.08);
-  --shadow-fab: 0 8px 24px rgba(91, 91, 214, 0.36);
+  /* Elevation — kept very light. Heavy shadows read as grime on a white ground. */
+  --shadow-1: 0 1px 2px rgba(13, 14, 18, 0.04);
+  --shadow-2: 0 2px 8px rgba(13, 14, 18, 0.06);
+  --shadow-3: 0 16px 48px rgba(13, 14, 18, 0.14), 0 2px 8px rgba(13, 14, 18, 0.06);
+  --shadow-fab: 0 6px 20px rgba(91, 91, 214, 0.32);
 
   /* Category accents (tuned to read on both themes) */
   --c-food: #f2635f;

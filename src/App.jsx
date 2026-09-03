@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import Icon from "./components/Icon.jsx";
 import Snackbar from "./components/Snackbar.jsx";
 import TabBar from "./components/TabBar.jsx";
+import useInstallPrompt from "./hooks/useInstallPrompt.js";
 import { isNative } from "./lib/storage.js";
 import HistoryScreen from "./screens/HistoryScreen.jsx";
 import HomeScreen from "./screens/HomeScreen.jsx";
@@ -15,6 +16,7 @@ const StatsScreen = lazy(() => import("./screens/StatsScreen.jsx"));
 
 export default function App() {
   const { loaded, currency, add, update, remove, restore, settings } = useExpenses();
+  const install = useInstallPrompt();
 
   const [tab, setTab] = useState("home");
   const [form, setForm] = useState(null); // null | { expense: Expense | null }
@@ -111,7 +113,8 @@ export default function App() {
     };
   }, []);
 
-  /* Match the status bar icons to the active theme. */
+  /* Match the status bar to the active theme — Style.Light means dark icons on a
+     light bar, which is what the white theme needs. */
   useEffect(() => {
     if (!isNative()) return;
     const dark =
@@ -121,6 +124,7 @@ export default function App() {
 
     import("@capacitor/status-bar").then(({ StatusBar, Style }) => {
       StatusBar.setStyle({ style: dark ? Style.Dark : Style.Light }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: dark ? "#0b0c10" : "#ffffff" }).catch(() => {});
     });
   }, [settings.theme]);
 
@@ -136,6 +140,7 @@ export default function App() {
     <div className="app">
       {tab === "home" && (
         <HomeScreen
+          install={install}
           onAdd={openAdd}
           onEdit={openEdit}
           onDelete={deleteWithUndo}
@@ -153,6 +158,7 @@ export default function App() {
       )}
       {tab === "settings" && (
         <SettingsScreen
+          install={install}
           onToast={notify}
           budgetSheetOpen={budgetSheet}
           onBudgetSheetChange={setBudgetSheet}
