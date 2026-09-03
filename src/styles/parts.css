@@ -1,0 +1,552 @@
+/* Screen- and widget-specific styles. Primitives live in global.css. */
+
+/* ---------- Boot ---------- */
+.boot {
+  flex: 1;
+  background: linear-gradient(180deg, transparent, var(--surface-2));
+  opacity: 0.5;
+  animation: pulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  to {
+    opacity: 0.18;
+  }
+}
+
+/* ---------- Hero ---------- */
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-5);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--accent) 12%, var(--surface)),
+    var(--surface) 62%
+  );
+}
+
+.hero__label {
+  font-size: 12.5px;
+  font-weight: 620;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.hero__amount {
+  font-size: 38px;
+  font-weight: 720;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  margin: 2px 0;
+}
+
+.hero__meta {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+}
+
+/* ---------- Stat tiles ---------- */
+.tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--sp-4);
+}
+
+.tile__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.tile__value {
+  font-size: 19px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Budget ---------- */
+.budget {
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+}
+
+.budget--empty {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-4);
+  text-align: left;
+}
+
+.budget--empty:active {
+  background: var(--surface-2);
+}
+
+.budget__cta {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 620;
+}
+
+.budget__hint {
+  display: block;
+  font-size: 12.5px;
+  color: var(--text-faint);
+  margin-top: 1px;
+}
+
+.budget__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.budget__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.budget__track {
+  height: 8px;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.budget__fill {
+  height: 100%;
+  border-radius: var(--r-full);
+  transition: width 0.45s var(--ease-out), background 0.3s;
+}
+
+.budget__meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: var(--sp-3);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.budget__meta strong {
+  font-weight: 680;
+  color: inherit;
+}
+
+/* ---------- Month nav ---------- */
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 0;
+}
+
+.month-nav__label {
+  flex: 1;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Search ---------- */
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 44px;
+  padding: 0 var(--sp-3);
+  margin-top: var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+}
+
+.search-bar input {
+  font-size: 14.5px;
+  color: var(--text);
+}
+
+.search-bar input::-webkit-search-cancel-button {
+  display: none;
+}
+
+/* ---------- Segmented control ---------- */
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 3px;
+  padding: 3px;
+  border-radius: var(--r-sm);
+  background: var(--surface-3);
+}
+
+.seg--sm {
+  margin-top: var(--sp-2);
+}
+
+.seg__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  transition: background 0.18s var(--ease-out), color 0.18s;
+}
+
+.seg__btn.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-1);
+}
+
+/* ---------- Amount input ---------- */
+.amount-input {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-5) 0 var(--sp-2);
+}
+
+.amount-input__symbol {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.amount-input__field {
+  width: 100%;
+  max-width: 260px;
+  font-size: 46px;
+  font-weight: 720;
+  letter-spacing: -0.04em;
+  text-align: left;
+}
+
+.amount-input__field::placeholder {
+  color: var(--text-faint);
+  opacity: 0.4;
+}
+
+.amount-input__echo {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-faint);
+  margin-top: -4px;
+}
+
+/* ---------- Category grid ---------- */
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-2);
+}
+
+.cat-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: var(--sp-3) 2px;
+  border-radius: var(--r-md);
+  border: 1.5px solid transparent;
+  background: var(--surface-2);
+  transition: all 0.16s var(--ease-out);
+}
+
+.cat-option:active {
+  transform: scale(0.95);
+}
+
+.cat-option.is-active {
+  border-color: var(--cat-color);
+  background: color-mix(in srgb, var(--cat-color) 10%, var(--surface-2));
+}
+
+.cat-option__label {
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.cat-option.is-active .cat-option__label {
+  color: var(--text);
+}
+
+/* ---------- Date field ---------- */
+.date-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 36px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.date-field input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- Dialog ---------- */
+.dialog-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 51;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-6);
+  pointer-events: none;
+}
+
+.dialog {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 340px;
+  padding: var(--sp-5);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-3);
+  animation: dialog-in 0.24s var(--ease-spring) both;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.dialog__title {
+  font-size: 17px;
+  font-weight: 680;
+  letter-spacing: -0.01em;
+}
+
+.dialog__text {
+  margin-top: var(--sp-2);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.dialog__actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+}
+
+/* ---------- Donut ---------- */
+.donut {
+  position: relative;
+}
+
+.donut__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.donut__label {
+  font-size: 11px;
+  font-weight: 620;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.donut__value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+/* ---------- Category breakdown ---------- */
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-top: var(--sp-5);
+}
+
+.bd-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.bd-row__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: 5px;
+}
+
+.bd-row__label {
+  font-size: 13.5px;
+  font-weight: 580;
+}
+
+.bd-row__amount {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.bd-bar {
+  display: block;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.bd-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-full);
+  animation: bar-grow 0.5s var(--ease-out) both;
+}
+
+@keyframes bar-grow {
+  from {
+    width: 0 !important;
+  }
+}
+
+.bd-row__pct {
+  flex: none;
+  width: 36px;
+  text-align: right;
+  font-size: 12.5px;
+  font-weight: 620;
+  color: var(--text-faint);
+}
+
+/* ---------- Chart tooltip ---------- */
+.chart-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-xs);
+  background: var(--text);
+  color: var(--bg);
+  box-shadow: var(--shadow-2);
+}
+
+.chart-tip__title {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.chart-tip__value {
+  font-size: 14px;
+  font-weight: 680;
+}
+
+/* ---------- Settings rows ---------- */
+.setting-list {
+  overflow: hidden;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-4);
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.setting-row:active {
+  background: var(--surface-2);
+}
+
+.setting-row:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.setting-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.setting-row__label {
+  font-size: 14.5px;
+  font-weight: 590;
+}
+
+.setting-row__hint {
+  font-size: 12.5px;
+  color: var(--text-faint);
+  line-height: 1.35;
+}
+
+.setting-row__value {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text-dim);
+}
+
+.sheet__note {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.footnote {
+  margin-top: var(--sp-6);
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-faint);
+}

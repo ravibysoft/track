@@ -1,0 +1,13 @@
+{
+  "appId": "com.ravi.expensetracker",
+  "appName": "Track",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#0b0c10",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

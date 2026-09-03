@@ -1,0 +1,155 @@
+/* Design tokens — light is the base, dark overrides only the colour roles. */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces & text */
+  --bg: #f2f3f8;
+  --bg-grad: radial-gradient(120% 80% at 50% -10%, #e6e7f5 0%, #f2f3f8 55%);
+  --surface: #ffffff;
+  --surface-2: #f6f7fb;
+  --surface-3: #eceef5;
+  --text: #14151a;
+  --text-dim: #6a6f80;
+  --text-faint: #9aa0b2;
+  --border: rgba(20, 21, 26, 0.09);
+  --border-strong: rgba(20, 21, 26, 0.16);
+
+  /* Brand */
+  --accent: #5b5bd6;
+  --accent-press: #4a4ac4;
+  --accent-soft: rgba(91, 91, 214, 0.12);
+  --on-accent: #ffffff;
+
+  /* Semantic */
+  --ok: #12a150;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --danger-soft: rgba(220, 38, 38, 0.1);
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px rgba(16, 18, 30, 0.06), 0 1px 3px rgba(16, 18, 30, 0.04);
+  --shadow-2: 0 4px 12px rgba(16, 18, 30, 0.08), 0 1px 3px rgba(16, 18, 30, 0.05);
+  --shadow-3: 0 12px 32px rgba(16, 18, 30, 0.16), 0 2px 8px rgba(16, 18, 30, 0.08);
+  --shadow-fab: 0 8px 24px rgba(91, 91, 214, 0.36);
+
+  /* Category accents (tuned to read on both themes) */
+  --c-food: #f2635f;
+  --c-groceries: #1fa971;
+  --c-travel: #2f9fe0;
+  --c-bills: #e08a1e;
+  --c-shopping: #db4b96;
+  --c-health: #12a394;
+  --c-entertainment: #9a5ae8;
+  --c-other: #7d879c;
+
+  /* Shape */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+  --r-full: 999px;
+
+  /* Rhythm */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-7: 32px;
+  --sp-8: 40px;
+
+  /* Type */
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+
+  /* Layout */
+  --app-w: 480px;
+  --tabbar-h: 62px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+/* Dark — follows the system unless the user forced light */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #0b0c10;
+    --bg-grad: radial-gradient(120% 80% at 50% -10%, #191b28 0%, #0b0c10 55%);
+    --surface: #16181f;
+    --surface-2: #1c1f28;
+    --surface-3: #242833;
+    --text: #f1f2f7;
+    --text-dim: #949aad;
+    --text-faint: #6b7186;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
+
+    --accent: #7b7bf0;
+    --accent-press: #8e8ef5;
+    --accent-soft: rgba(123, 123, 240, 0.16);
+    --on-accent: #ffffff;
+
+    --ok: #34d399;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --danger-soft: rgba(248, 113, 113, 0.14);
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.45);
+    --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+    --shadow-fab: 0 8px 24px rgba(0, 0, 0, 0.55);
+
+    --c-food: #ff7a75;
+    --c-groceries: #3ad18f;
+    --c-travel: #56b8f0;
+    --c-bills: #f5a83c;
+    --c-shopping: #f265ad;
+    --c-health: #2ac2b2;
+    --c-entertainment: #b076ff;
+    --c-other: #95a0b5;
+  }
+}
+
+/* Dark — forced from Settings */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0b0c10;
+  --bg-grad: radial-gradient(120% 80% at 50% -10%, #191b28 0%, #0b0c10 55%);
+  --surface: #16181f;
+  --surface-2: #1c1f28;
+  --surface-3: #242833;
+  --text: #f1f2f7;
+  --text-dim: #949aad;
+  --text-faint: #6b7186;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --accent: #7b7bf0;
+  --accent-press: #8e8ef5;
+  --accent-soft: rgba(123, 123, 240, 0.16);
+  --on-accent: #ffffff;
+
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.14);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --shadow-fab: 0 8px 24px rgba(0, 0, 0, 0.55);
+
+  --c-food: #ff7a75;
+  --c-groceries: #3ad18f;
+  --c-travel: #56b8f0;
+  --c-bills: #f5a83c;
+  --c-shopping: #f265ad;
+  --c-health: #2ac2b2;
+  --c-entertainment: #b076ff;
+  --c-other: #95a0b5;
+}
