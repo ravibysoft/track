@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import AnimatedAmount from "../components/AnimatedAmount.jsx";
 import BudgetBar from "../components/BudgetBar.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ExpenseRow from "../components/ExpenseRow.jsx";
@@ -39,7 +40,7 @@ export default function HomeScreen({ install, onAdd, onEdit, onDelete, onOpenSet
 
       <section className="hero card">
         <span className="hero__label">Spent today</span>
-        <span className="hero__amount num">{formatMoney(stats.todayTotal, currency)}</span>
+        <AnimatedAmount className="hero__amount" value={stats.todayTotal} currency={currency} />
         <span className="hero__meta">
           {stats.todayItems.length === 0
             ? "Nothing logged yet"
@@ -98,7 +99,11 @@ export default function HomeScreen({ install, onAdd, onEdit, onDelete, onOpenSet
         <div className="card">
           <ul className="list">
             {stats.todayItems.map((expense, i) => (
-              <li key={expense.id}>
+              <li
+                key={expense.id}
+                className="row-item"
+                style={{ animationDelay: `${Math.min(i, 8) * 32}ms` }}
+              >
                 {i > 0 && <div className="list__sep" />}
                 <ExpenseRow
                   expense={expense}

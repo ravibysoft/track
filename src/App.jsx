@@ -14,6 +14,9 @@ import { useExpenses } from "./state/useExpenses.js";
    load it the first time Stats is opened. */
 const StatsScreen = lazy(() => import("./screens/StatsScreen.jsx"));
 
+/** Left-to-right order of the tab bar, used to pick the slide direction. */
+const TAB_ORDER = ["home", "history", "stats", "settings"];
+
 export default function App() {
   const { loaded, currency, add, update, remove, restore, settings } = useExpenses();
   const install = useInstallPrompt();
@@ -23,11 +26,19 @@ export default function App() {
   const [budgetSheet, setBudgetSheet] = useState(false);
   const [toast, setToast] = useState(null);
 
+  /* +1 when moving right along the tab bar, -1 when moving left. The screen slides
+     in from that side, so the motion matches the direction you travelled. */
+  const [direction, setDirection] = useState(1);
+
   /* Switching tabs dismisses the budget sheet, so it never reappears on return. */
-  const changeTab = useCallback((next) => {
-    setTab(next);
-    setBudgetSheet(false);
-  }, []);
+  const changeTab = useCallback(
+    (next) => {
+      setDirection(TAB_ORDER.indexOf(next) >= TAB_ORDER.indexOf(tab) ? 1 : -1);
+      setTab(next);
+      setBudgetSheet(false);
+    },
+    [tab],
+  );
 
   const notify = useCallback((message) => setToast({ id: Date.now(), message }), []);
   const closeToast = useCallback(() => setToast(null), []);
@@ -138,32 +149,35 @@ export default function App() {
 
   return (
     <div className="app">
-      {tab === "home" && (
-        <HomeScreen
-          install={install}
-          onAdd={openAdd}
-          onEdit={openEdit}
-          onDelete={deleteWithUndo}
-          onOpenSettings={() => {
-            changeTab("settings");
-            setBudgetSheet(true);
-          }}
-        />
-      )}
-      {tab === "history" && <HistoryScreen onEdit={openEdit} onDelete={deleteWithUndo} />}
-      {tab === "stats" && (
-        <Suspense fallback={<div className="screen"><div className="boot" /></div>}>
-          <StatsScreen />
-        </Suspense>
-      )}
-      {tab === "settings" && (
-        <SettingsScreen
-          install={install}
-          onToast={notify}
-          budgetSheetOpen={budgetSheet}
-          onBudgetSheetChange={setBudgetSheet}
-        />
-      )}
+      {/* Keyed on the tab so switching remounts the host and replays its slide-in. */}
+      <div className="screen-host" key={tab} data-direction={direction}>
+        {tab === "home" && (
+          <HomeScreen
+            install={install}
+            onAdd={openAdd}
+            onEdit={openEdit}
+            onDelete={deleteWithUndo}
+            onOpenSettings={() => {
+              changeTab("settings");
+              setBudgetSheet(true);
+            }}
+          />
+        )}
+        {tab === "history" && <HistoryScreen onEdit={openEdit} onDelete={deleteWithUndo} />}
+        {tab === "stats" && (
+          <Suspense fallback={<div className="screen"><div className="boot" /></div>}>
+            <StatsScreen />
+          </Suspense>
+        )}
+        {tab === "settings" && (
+          <SettingsScreen
+            install={install}
+            onToast={notify}
+            budgetSheetOpen={budgetSheet}
+            onBudgetSheetChange={setBudgetSheet}
+          />
+        )}
+      </div>
 
       {tab !== "settings" && (
         <button type="button" className="fab" onClick={openAdd} aria-label="Add expense">

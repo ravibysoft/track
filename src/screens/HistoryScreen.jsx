@@ -130,7 +130,11 @@ export default function HistoryScreen({ onEdit, onDelete }) {
             <div className="card">
               <ul className="list">
                 {group.items.map((expense, i) => (
-                  <li key={expense.id}>
+                  <li
+                    key={expense.id}
+                    className="row-item"
+                    style={{ animationDelay: `${Math.min(i, 8) * 32}ms` }}
+                  >
                     {i > 0 && <div className="list__sep" />}
                     <ExpenseRow
                       expense={expense}

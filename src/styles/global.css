@@ -96,13 +96,49 @@ ol {
   /* Clears the tab bar *and* the 56px FAB that floats above it, so the last row
      in a list is never hidden behind either. */
   padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 88px);
-  animation: screen-in 0.26s var(--ease-out) both;
 }
 
-@keyframes screen-in {
+/* The screen host carries the tab transition. Only transform and opacity are
+   animated, so the WebView can composite it on the GPU and hold 60fps. */
+.screen-host {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  /* `backwards`, not `both`: the from-state is applied before the run, and control
+     is released afterwards so no transform lingers to disturb sticky day headers. */
+  animation: screen-in-forward 0.3s var(--ease-out) backwards;
+}
+
+.screen-host[data-direction="-1"] {
+  animation-name: screen-in-back;
+}
+
+@keyframes screen-in-forward {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translate3d(22px, 0, 0);
+  }
+}
+
+@keyframes screen-in-back {
+  from {
+    opacity: 0;
+    transform: translate3d(-22px, 0, 0);
+  }
+}
+
+/* List rows fan in behind the screen slide. The delay is capped in the JSX so a
+   long month does not turn into a slow cascade. */
+.row-item {
+  /* `backwards` keeps a row hidden through its stagger delay instead of flashing
+     in at full opacity first. */
+  animation: row-in 0.34s var(--ease-out) backwards;
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
   }
 }
 
@@ -426,6 +462,7 @@ ol {
 }
 
 .tabbar__btn {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -436,6 +473,24 @@ ol {
   font-weight: 600;
   letter-spacing: 0.01em;
   transition: color 0.18s;
+}
+
+/* A short bar that springs out under the top edge of the active tab. */
+.tabbar__btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 20px;
+  height: 2.5px;
+  border-radius: 0 0 3px 3px;
+  background: var(--accent);
+  transform: translateX(-50%) scaleX(0);
+  transition: transform 0.3s var(--ease-spring);
+}
+
+.tabbar__btn.is-active::before {
+  transform: translateX(-50%) scaleX(1);
 }
 
 .tabbar__btn svg {
@@ -709,6 +764,9 @@ textarea.input {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    /* Staggered rows set an inline delay; without this they would still appear
+       one after another, just invisibly slowly. */
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
   }
 }

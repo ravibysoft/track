@@ -14,8 +14,11 @@ const dom = new JSDOM("<!doctype html><html><body><div id='root'></div></body></
 });
 
 const { window } = dom;
+let reduceMotion = true;
 window.matchMedia = (query) => ({
-  matches: false,
+  // Reduced motion so count-up animations resolve instantly and assertions are
+  // not racing a 520ms tween. Every other query stays false.
+  matches: /prefers-reduced-motion/.test(query) && reduceMotion,
   media: query,
   onchange: null,
   addEventListener() {},
@@ -46,7 +49,7 @@ globalThis.PointerEvent = window.MouseEvent;
 globalThis.MutationObserver = window.MutationObserver;
 globalThis.getComputedStyle = window.getComputedStyle.bind(window);
 globalThis.localStorage = window.localStorage;
-globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(Date.now()), 0);
+globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()), 16);
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 /* jsdom has no layout engine, so charts would measure 0px and skip rendering.
    A stub ResizeObserver plus fixed offset sizes give them a real box to draw in. */
@@ -312,5 +315,23 @@ await settle();
 check("data saved under the old name still loads", !!byText(".row__title", "Old auto fare"));
 check("it moved to the new key", (localStorage.getItem("rozkharcha.v1") ?? "").includes("Old auto fare"));
 check("the old key is cleaned up", localStorage.getItem("track.v1") === null);
+
+console.log("");
+console.log("Count-up animation");
+reduceMotion = false;
+const { default: AnimatedAmount } = await import("../src/components/AnimatedAmount.jsx");
+const counterHost = document.createElement("div");
+document.body.appendChild(counterHost);
+const counterRoot = createRoot(counterHost);
+await act(async () => {
+  counterRoot.render(createElement(AnimatedAmount, { value: 1500, currency: "₹" }));
+});
+await act(async () => { await new Promise((r) => setTimeout(r, 60)); });
+const midway = counterHost.textContent.trim();
+check("starts below the target rather than snapping", midway !== "₹1,500", `showed "${midway}" at 60ms`);
+await act(async () => { await new Promise((r) => setTimeout(r, 900)); });
+check("settles exactly on the target", counterHost.textContent.trim() === "₹1,500", `ended on "${counterHost.textContent.trim()}"`);
+check("never shows stray paise on a whole amount", !/\.\d/.test(counterHost.textContent));
+reduceMotion = true;
 console.log(`\n${checks - failures}/${checks} checks passed\n`);
 process.exit(failures === 0 ? 0 : 1);

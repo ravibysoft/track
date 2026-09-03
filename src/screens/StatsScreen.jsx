@@ -9,6 +9,7 @@ import {
   Tooltip,
   XAxis,
 } from "recharts";
+import AnimatedAmount from "../components/AnimatedAmount.jsx";
 import CategoryIcon from "../components/CategoryIcon.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import Icon from "../components/Icon.jsx";
@@ -77,7 +78,7 @@ export default function StatsScreen() {
           {/* Total + trend */}
           <section className="hero card" style={{ marginTop: "var(--sp-4)" }}>
             <span className="hero__label">Total spent</span>
-            <span className="hero__amount num">{formatMoney(data.total, currency)}</span>
+            <AnimatedAmount className="hero__amount" value={data.total} currency={currency} />
             <span className="hero__meta">
               {change === null ? (
                 `${data.items.length} expenses across ${data.activeDays} days`
@@ -119,7 +120,7 @@ export default function StatsScreen() {
                     outerRadius="94%"
                     paddingAngle={data.breakdown.length > 1 ? 2 : 0}
                     strokeWidth={0}
-                    isAnimationActive={false}
+                    animationDuration={620}
                   >
                     {data.breakdown.map((slice) => (
                       <Cell key={slice.categoryId} fill={colors[slice.categoryId]} />
@@ -188,7 +189,7 @@ export default function StatsScreen() {
                   dataKey="amount"
                   fill={colors.accent}
                   radius={[4, 4, 2, 2]}
-                  isAnimationActive={false}
+                  animationDuration={620}
                   minPointSize={0}
                 />
               </BarChart>

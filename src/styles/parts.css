@@ -136,6 +136,9 @@
   height: 100%;
   border-radius: var(--r-full);
   transition: width 0.45s var(--ease-out), background 0.3s;
+  /* No fill-mode on purpose: once the grow-in ends the width returns to being
+     transition-driven, so later changes glide instead of snapping. */
+  animation: bar-grow 0.7s var(--ease-out);
 }
 
 .budget__meta {
