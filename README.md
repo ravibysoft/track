@@ -12,8 +12,6 @@ Ships two ways from one codebase:
 ## What it does
 
 - **Add / edit / delete** expenses **and income** — amount, category, date, note, and how it was paid
-- **Calculator keypad** for the amount: no system keyboard, and it does arithmetic
-  (`250 + 80`) for splitting a bill or totting up a receipt
 - **Home** — spent today, an Income / Expense / Balance strip, and a monthly budget bar
 - **History** — a **month calendar** with each day's total in the cell, or a list grouped
   day by day, with search, category filters and per-day subtotals
@@ -43,10 +41,10 @@ npm run smoke   # mounts the real app in jsdom and drives it end to end
 npm run build   # production bundle into dist/
 ```
 
-`npm run smoke` is the important one — 101 checks that add, edit, delete and restore an
+`npm run smoke` is the important one — 98 checks that add, edit, delete and restore an
 expense, switch every tab, set a budget, flip the theme, reload to confirm data persisted,
 and verify the old `track.v1` storage key still migrates. It also covers the money, date,
-CSV, calculator and count-up cases, plus a cascade guard that a long note cannot widen
+CSV and count-up cases, plus a cascade guard that a long note cannot widen
 the screen.
 
 ## The PWA

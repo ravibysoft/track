@@ -1,12 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import CategoryIcon from "../components/CategoryIcon.jsx";
 import Icon from "../components/Icon.jsx";
-import Keypad from "../components/Keypad.jsx";
 import Sheet from "../components/Sheet.jsx";
 import { PAYMENT_MODES, categoriesFor, defaultCategoryFor } from "../lib/categories.js";
-import * as calc from "../lib/calc.js";
 import { shortDayLabel, todayKey, toKey } from "../lib/dates.js";
-import { formatMoney } from "../lib/money.js";
+import { formatMoney, parseAmount } from "../lib/money.js";
 
 function yesterdayKey() {
   const d = new Date();
@@ -18,16 +16,14 @@ function yesterdayKey() {
  * Add / edit sheet. `entry` null means "add"; otherwise the fields are prefilled
  * and a Delete button appears in the footer.
  *
- * The amount is driven by the keypad rather than an <input>, so the system
- * keyboard never opens and the sheet never resizes underneath you.
+ * The amount uses the phone's own numeric keyboard (inputMode="decimal") and is
+ * focused on open, so the keyboard is already up and the first tap is a digit.
  */
 export default function ExpenseFormSheet({ expense, currency, onSave, onDelete, onClose }) {
   const editing = Boolean(expense);
 
   const [type, setType] = useState(expense?.type ?? "expense");
-  const [amount, setAmount] = useState(() =>
-    expense ? calc.fromAmount(expense.amount) : calc.emptyCalc(),
-  );
+  const [amountText, setAmountText] = useState(expense ? String(expense.amount) : "");
   const [categoryId, setCategoryId] = useState(
     expense?.categoryId ?? defaultCategoryFor("expense"),
   );
@@ -35,10 +31,17 @@ export default function ExpenseFormSheet({ expense, currency, onSave, onDelete, 
   const [note, setNote] = useState(expense?.note ?? "");
   const [paymentMode, setPaymentMode] = useState(expense?.paymentMode ?? "cash");
 
-  const value = calc.calcValue(amount);
+  const amountRef = useRef(null);
+  const value = parseAmount(amountText);
   const valid = value !== null && value > 0;
-  const pending = calc.isPending(amount);
   const income = type === "income";
+
+  /* Open the numeric keyboard straight away when adding — the amount is the point. */
+  useEffect(() => {
+    if (editing) return undefined;
+    const t = setTimeout(() => amountRef.current?.focus(), 260);
+    return () => clearTimeout(t);
+  }, [editing]);
 
   /* Switching type swaps the whole category set, so the old pick cannot survive. */
   const switchType = (next) => {
@@ -76,31 +79,18 @@ export default function ExpenseFormSheet({ expense, currency, onSave, onDelete, 
               <Icon name="trash" size={18} />
             </button>
           )}
-          {/* While an operator is waiting, the primary button resolves the sum
-              instead of saving — one button, no separate "=" key to hunt for. */}
-          {pending ? (
-            <button
-              type="button"
-              className="btn btn--primary btn--lg grow"
-              onClick={() => setAmount(calc.pressEquals(amount))}
-            >
-              <Icon name="equals" size={18} />
-              Equals
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={`btn btn--lg grow ${income ? "btn--income" : "btn--primary"}`}
-              disabled={!valid}
-              onClick={() => submit(close)}
-            >
-              {editing ? "Save changes" : `Add ${noun}`}
-            </button>
-          )}
+          <button
+            type="button"
+            className={`btn btn--lg grow ${income ? "btn--income" : "btn--primary"}`}
+            disabled={!valid}
+            onClick={() => submit(close)}
+          >
+            {editing ? "Save changes" : `Add ${noun}`}
+          </button>
         </>
       )}
     >
-      {() => (
+      {({ close }) => (
         <>
           {/* Expense / Income */}
           <div className="seg seg--type">
@@ -122,25 +112,54 @@ export default function ExpenseFormSheet({ expense, currency, onSave, onDelete, 
             </button>
           </div>
 
-          {/* Amount */}
-          <div className={`amount-display${income ? " amount-display--income" : ""}`}>
-            <span className="amount-display__pending num">{calc.pendingText(amount)}</span>
-            <span className="amount-display__row">
-              {/* Hidden mid-calculation: a "−" beside 80 while adding 250 + 80 reads
-                  as "minus 80" rather than "this is an expense". */}
-              {!pending && <span className="amount-display__sign">{income ? "+" : "−"}</span>}
-              <span className="amount-display__symbol">{currency}</span>
-              <span className="amount-display__value num">{calc.displayText(amount)}</span>
+          {/* Amount — a labelled row, the way Money Manager lays the form out */}
+          <div className={`form-row form-row--amount${income ? " is-income" : ""}`}>
+            <span className="form-row__label">Amount</span>
+            <span className="form-row__symbol">
+              {income ? "+" : "−"}
+              {currency}
             </span>
+            <input
+              ref={amountRef}
+              type="text"
+              inputMode="decimal"
+              enterKeyHint="done"
+              placeholder="0"
+              value={amountText}
+              maxLength={12}
+              className="num"
+              onChange={(e) => setAmountText(e.target.value.replace(/[^0-9.]/g, ""))}
+              onKeyDown={(e) => e.key === "Enter" && valid && submit(close)}
+              aria-label="Amount"
+            />
           </div>
 
-          <Keypad
-            activeOperator={amount.entry === "" ? amount.op : null}
-            onDigit={(d) => setAmount(calc.pressDigit(amount, d))}
-            onDot={() => setAmount(calc.pressDot(amount))}
-            onOperator={(op) => setAmount(calc.pressOperator(amount, op))}
-            onBackspace={() => setAmount(calc.pressBackspace(amount))}
-          />
+          {/* Date */}
+          <label className="form-row date-row">
+            <span className="form-row__label">Date</span>
+            <span className="form-row__value">{shortDayLabel(date)}</span>
+            <input
+              type="date"
+              value={date}
+              max={today}
+              onChange={(e) => e.target.value && setDate(e.target.value)}
+              aria-label="Pick a date"
+            />
+          </label>
+
+          <div className="hstack" style={{ gap: "var(--sp-2)", padding: "var(--sp-3) 0" }}>
+            <button type="button" className="chip" aria-pressed={date === today} onClick={() => setDate(today)}>
+              Today
+            </button>
+            <button
+              type="button"
+              className="chip"
+              aria-pressed={date === yesterday}
+              onClick={() => setDate(yesterday)}
+            >
+              Yesterday
+            </button>
+          </div>
 
           {/* Category */}
           <div className="field">
@@ -162,56 +181,22 @@ export default function ExpenseFormSheet({ expense, currency, onSave, onDelete, 
             </div>
           </div>
 
-          {/* Date */}
-          <div className="field">
-            <span className="field__label">Date</span>
-            <div className="hstack" style={{ gap: "var(--sp-2)" }}>
-              <button
-                type="button"
-                className="chip"
-                aria-pressed={date === today}
-                onClick={() => setDate(today)}
-              >
-                Today
-              </button>
-              <button
-                type="button"
-                className="chip"
-                aria-pressed={date === yesterday}
-                onClick={() => setDate(yesterday)}
-              >
-                Yesterday
-              </button>
-              <label className="date-field grow">
-                <Icon name="calendar" size={16} />
-                <span className="grow">{shortDayLabel(date)}</span>
-                <input
-                  type="date"
-                  value={date}
-                  max={today}
-                  onChange={(e) => e.target.value && setDate(e.target.value)}
-                  aria-label="Pick a date"
-                />
-              </label>
-            </div>
-          </div>
-
           {/* Note */}
-          <div className="field">
-            <span className="field__label">Note (optional)</span>
+          <div className="form-row">
+            <span className="form-row__label">Note</span>
             <input
-              className="input"
               type="text"
               placeholder={income ? "August salary" : "Lunch at office"}
               value={note}
               maxLength={120}
               enterKeyHint="done"
               onChange={(e) => setNote(e.target.value)}
+              aria-label="Note"
             />
           </div>
 
           {/* Payment mode */}
-          <div className="field">
+          <div className="field" style={{ marginTop: "var(--sp-5)" }}>
             <span className="field__label">{income ? "Received in" : "Paid by"}</span>
             <div className="seg">
               {PAYMENT_MODES.map((m) => (
@@ -229,7 +214,7 @@ export default function ExpenseFormSheet({ expense, currency, onSave, onDelete, 
           </div>
 
           {valid && value >= 1000 && (
-            <p className="amount-echo num">{formatMoney(value, currency)}</p>
+            <p className="amount-input__echo num">{formatMoney(value, currency)}</p>
           )}
         </>
       )}

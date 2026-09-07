@@ -680,105 +680,10 @@
   color: var(--danger);
 }
 
-/* ---------- Amount display (keypad head) ---------- */
-.amount-display {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: var(--sp-3) 0 var(--sp-4);
-}
-
-.amount-display__pending {
-  min-height: 18px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text-faint);
-}
-
-.amount-display__row {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.amount-display__sign {
-  font-size: 26px;
-  font-weight: 600;
-  color: var(--text-faint);
-}
-
-.amount-display__symbol {
-  font-size: 26px;
-  font-weight: 600;
-  color: var(--text-faint);
-}
-
-.amount-display__value {
-  font-size: 44px;
-  font-weight: 720;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
-  overflow-wrap: anywhere;
-}
-
-.amount-display--income .amount-display__value,
-.amount-display--income .amount-display__sign {
+/* Income styling for the amount field (its base rules live above). */
+.amount-input--income .amount-input__field,
+.amount-input--income .amount-input__symbol {
   color: var(--ok);
-}
-
-.amount-echo {
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-faint);
-  margin-bottom: var(--sp-2);
-}
-
-/* ---------- Keypad ---------- */
-.keypad {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-5);
-}
-
-.keypad__key {
-  display: grid;
-  place-items: center;
-  min-height: 52px;
-  border-radius: var(--r-md);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  font-size: 21px;
-  font-weight: 620;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-  transition: transform 0.1s var(--ease-out), background 0.15s;
-}
-
-.keypad__key:active {
-  transform: scale(0.94);
-  background: var(--surface-3);
-}
-
-.keypad__key svg {
-  width: 20px;
-  height: 20px;
-}
-
-.keypad__key--op {
-  background: var(--accent-soft);
-  border-color: transparent;
-  color: var(--accent);
-}
-
-.keypad__key--op.is-active {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-.keypad__key--util {
-  color: var(--text-dim);
 }
 
 /* ---------- Calendar ---------- */
@@ -862,4 +767,251 @@
   align-items: baseline;
   gap: var(--sp-3);
   min-width: 0;
+}
+
+/* ---------- Period bar + tab strip (Money Manager layout) ---------- */
+.period-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: calc(env(safe-area-inset-top) + var(--sp-4)) 0 var(--sp-2);
+}
+
+.period-bar__label {
+  flex: 1;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.tabstrip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border-bottom: 1px solid var(--border);
+  margin: 0 calc(var(--sp-4) * -1);
+  padding: 0 var(--sp-2);
+}
+
+.tabstrip__tab {
+  position: relative;
+  padding: var(--sp-3) 2px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-faint);
+  transition: color 0.18s;
+}
+
+.tabstrip__tab.is-active {
+  color: var(--text);
+  font-weight: 680;
+}
+
+/* The underline slides in rather than snapping, matching the tab-bar indicator. */
+.tabstrip__tab::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -1px;
+  height: 2.5px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  transform: scaleX(0);
+  transition: transform 0.28s var(--ease-spring);
+}
+
+.tabstrip__tab.is-active::after {
+  transform: scaleX(1);
+}
+
+/* ---------- Summary bar ---------- */
+.summary-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+  padding: var(--sp-4) 0;
+  border-bottom: 1px solid var(--border);
+  margin: 0 calc(var(--sp-4) * -1) var(--sp-2);
+  padding-left: var(--sp-4);
+  padding-right: var(--sp-4);
+}
+
+.summary-bar__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.summary-bar__label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.summary-bar__value {
+  font-size: 15px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-bar__value--income {
+  color: var(--ok);
+}
+
+.summary-bar__value--expense {
+  color: var(--danger);
+}
+
+/* ---------- Monthly rows ---------- */
+.month-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  text-align: left;
+  flex-wrap: wrap;
+}
+
+/* A border, not a separator element: a <div> inside this flex row counted as a
+   flex item and its gap pushed every row but the first out of alignment. */
+.month-row + .month-row {
+  border-top: 1px solid var(--border);
+}
+
+.month-row:active {
+  background: var(--surface-2);
+}
+
+.month-row__name {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.month-row__figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-3);
+  flex: 2;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.month-row__income {
+  color: var(--ok);
+}
+
+.month-row__expense {
+  color: var(--danger);
+}
+
+.month-row__net {
+  color: var(--text-dim);
+}
+
+.hint {
+  padding: var(--sp-3) var(--sp-1) 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+/* ---------- Compact form rows ---------- */
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.form-row__label {
+  flex: none;
+  width: 82px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.form-row__value {
+  flex: 1;
+  min-width: 0;
+  font-size: 15.5px;
+  font-weight: 570;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.form-row__value--muted {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.form-row input {
+  flex: 1;
+  min-width: 0;
+  font-size: 15.5px;
+  font-weight: 570;
+}
+
+.form-row--amount input {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.form-row--amount .form-row__symbol {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.form-row--amount.is-income input,
+.form-row--amount.is-income .form-row__symbol {
+  color: var(--ok);
+}
+
+.date-row {
+  position: relative;
+  cursor: pointer;
+}
+
+.date-row input[type="date"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+}
+
+/* The row is already underlined and the caret is visible — a focus box around a
+   26px number just reads as a stray border. */
+.form-row input:focus-visible {
+  outline: none;
+}
+
+.form-row input::placeholder {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.form-row--amount input::placeholder {
+  opacity: 0.45;
+}
+
+/* The focused row gets an accent underline instead, the way the reference does. */
+.form-row:focus-within {
+  border-bottom-color: var(--accent);
 }

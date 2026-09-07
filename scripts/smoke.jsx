@@ -113,22 +113,6 @@ async function type(el, value) {
 }
 
 /* Long enough to cover the sheet close animation (190ms) and the debounced save (200ms). */
-/* The amount is entered on the keypad now, not a text field — press the real
-   keys so the test exercises what a person actually touches. */
-async function tapAmount(digits) {
-  for (const ch of String(digits)) {
-    const key = [...document.querySelectorAll(".keypad__key")].find(
-      (b) => b.textContent.trim() === ch,
-    );
-    if (!key) throw new Error(`No keypad key for "${ch}"`);
-    await click(key, `keypad ${ch}`);
-  }
-}
-const keypadKey = (label) =>
-  [...document.querySelectorAll(".keypad__key")].find(
-    (b) => b.getAttribute("aria-label") === label,
-  );
-
 const settle = (ms = 280) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
 
 /* ---------- Pure-function edge cases ---------- */
@@ -188,10 +172,14 @@ await click($(".fab"), "FAB");
 await settle();
 check("opens the add sheet", text(".sheet__title") === "Add expense", `got "${text(".sheet__title")}"`);
 check("Add button starts disabled", $(".sheet__foot .btn--primary")?.disabled === true);
+check("amount is a real input, so the phone keyboard opens", $(".form-row--amount input")?.tagName === "INPUT");
+check("it asks for the numeric keyboard", $(".form-row--amount input")?.getAttribute("inputmode") === "decimal", `got "${$(".form-row--amount input")?.getAttribute("inputmode")}"`);
+check("it is focused on open so the keyboard is already up", document.activeElement === $(".form-row--amount input"));
+check("no in-app keypad is rendered", $$(".keypad__key").length === 0);
 
-await tapAmount("250.50");
+await type($(".form-row--amount input"), "250.50");
 await click(byText(".cat-option", "Food"), "Food category");
-await type($('.field input[type="text"].input'), "Lunch at office");
+await type($('input[aria-label="Note"]'), "Lunch at office");
 await settle();
 check("Add button enables once an amount is typed", $(".sheet__foot .btn--primary")?.disabled === false);
 
@@ -208,10 +196,10 @@ check("persisted to storage", (localStorage.getItem("rozkharcha.v1") ?? "").incl
 console.log("\nIndian digit grouping");
 await click($(".fab"), "FAB");
 await settle();
-await tapAmount("125400");
+await type($(".form-row--amount input"), "125400");
 await click(byText(".cat-option", "Shopping"), "Shopping category");
 await settle();
-check("previews ₹1,25,400 (en-IN grouping)", text(".amount-echo") === "₹1,25,400", `got "${text(".amount-echo")}"`);
+check("previews ₹1,25,400 (en-IN grouping)", text(".amount-input__echo") === "₹1,25,400", `got "${text(".amount-input__echo")}"`);
 await click($(".sheet__foot .btn--primary"), "Add expense");
 await settle();
 check("two expenses now listed", $$(".row").length === 2, `${$$(".row").length} rows`);
@@ -221,13 +209,8 @@ console.log("\nEdit an expense");
 await click(byText(".row", "Lunch at office"), "Lunch row");
 await settle();
 check("opens the edit sheet", text(".sheet__title") === "Edit expense", `got "${text(".sheet__title")}"`);
-check("prefills the amount", text(".amount-display__value") === "250.5", `got "${text(".amount-display__value")}"`);
-await click(keypadKey("Delete last digit"), "backspace");
-await click(keypadKey("Delete last digit"), "backspace");
-await click(keypadKey("Delete last digit"), "backspace");
-await click(keypadKey("Delete last digit"), "backspace");
-await click(keypadKey("Delete last digit"), "backspace");
-await tapAmount("300");
+check("prefills the amount", $(".form-row--amount input")?.value === "250.5", `got "${$(".form-row--amount input")?.value}"`);
+await type($(".form-row--amount input"), "300");
 await click($(".sheet__foot .btn--primary"), "Save changes");
 await settle();
 check("edited amount shows in the list", !!byText(".row__amount", "₹300"));
@@ -247,7 +230,10 @@ check("undo restores it", $$(".row").length === 2, `${$$(".row").length} rows`);
 console.log("\nHistory tab");
 await click(byText(".tabbar__btn", "History"), "History tab");
 await settle();
-check("history header renders", text(".appbar__title") === "History", `got "${text(".appbar__title")}"`);
+check("period bar shows the month", /\d{4}/.test(text(".period-bar__label")), `got "${text(".period-bar__label")}"`);
+check("Daily / Calendar / Monthly / Total tabs render", $$(".tabstrip__tab").length === 4, `${$$(".tabstrip__tab").length} tabs`);
+check("Daily is the tab you land on", byText(".tabstrip__tab", "Daily")?.className.includes("is-active"));
+check("income / expenses / total summary is always on screen", $$(".summary-bar__col").length === 3);
 check("groups under a day heading", text(".day-head__label") === "Today", `got "${text(".day-head__label")}"`);
 check("day subtotal shown", text(".day-head__total") === "₹1,25,700", `got "${text(".day-head__total")}"`);
 check("both expenses listed", $$(".row").length === 2, `${$$(".row").length} rows`);
@@ -384,39 +370,6 @@ console.log("Row overflow guard");
 }
 
 console.log("");
-console.log("Calculator keypad");
-{
-  const calc = await import("../src/lib/calc.js");
-  let st = calc.emptyCalc();
-  for (const d of "250") st = calc.pressDigit(st, d);
-  st = calc.pressOperator(st, "+");
-  for (const d of "80") st = calc.pressDigit(st, d);
-  check("shows the pending sum while typing", calc.pendingText(st) === "250 +", `got "${calc.pendingText(st)}"`);
-  st = calc.pressEquals(st);
-  check("250 + 80 = 330", calc.calcValue(st) === 330, `got ${calc.calcValue(st)}`);
-
-  let chain = calc.emptyCalc();
-  for (const d of "250") chain = calc.pressDigit(chain, d);
-  chain = calc.pressOperator(chain, "+");
-  for (const d of "80") chain = calc.pressDigit(chain, d);
-  chain = calc.pressOperator(chain, "*");
-  chain = calc.pressDigit(chain, "2");
-  chain = calc.pressEquals(chain);
-  check("chains left to right like a pocket calculator", calc.calcValue(chain) === 660, `got ${calc.calcValue(chain)}`);
-
-  let div = calc.pressDigit(calc.emptyCalc(), "5");
-  div = calc.pressOperator(div, "/");
-  div = calc.pressDigit(div, "0");
-  div = calc.pressEquals(div);
-  check("divide by zero cannot poison the amount", Number.isFinite(calc.calcValue(div)), `got ${calc.calcValue(div)}`);
-
-  let dots = calc.pressDot(calc.pressDot(calc.pressDigit(calc.emptyCalc(), "1")));
-  check("only one decimal point is accepted", dots.entry === "1.", `got "${dots.entry}"`);
-  check("an empty keypad still reads as 0", calc.displayText(calc.emptyCalc()) === "0");
-  check("nothing typed means no amount to save", calc.calcValue(calc.emptyCalc()) === null);
-}
-
-console.log("");
 console.log("Income entries");
 {
   const dbm = await import("../src/lib/db.js");
@@ -462,7 +415,7 @@ console.log("Income + calendar in the UI");
   check("income categories replace expense ones", !!byText(".cat-option", "Salary"));
   check("expense categories are gone", !byText(".cat-option", "Groceries"));
 
-  await tapAmount("5000");
+  await type($(".form-row--amount input"), "5000");
   await click(byText(".cat-option", "Salary"), "Salary");
   await click($(".sheet__foot .btn"), "Add income");
   await settle();
@@ -475,7 +428,7 @@ console.log("Income + calendar in the UI");
 
   await click(byText(".tabbar__btn", "History"), "History tab");
   await settle();
-  await click(byText(".seg__btn", "Calendar"), "Calendar view");
+  await click(byText(".tabstrip__tab", "Calendar"), "Calendar tab");
   await settle();
   check("calendar grid renders", $$(".calendar__cell").length >= 28, `${$$(".calendar__cell").length} cells`);
   check("weekday headers render", $$(".calendar__weekday").length === 7);
