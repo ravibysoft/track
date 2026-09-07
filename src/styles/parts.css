@@ -786,6 +786,8 @@
 }
 
 .tabstrip {
+  /* Positioning context for the sliding underline. */
+  position: relative;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
@@ -1014,4 +1016,219 @@
 /* The focused row gets an accent underline instead, the way the reference does. */
 .form-row:focus-within {
   border-bottom-color: var(--accent);
+}
+
+/* ---------- Full-page form ---------- */
+.page {
+  position: fixed;
+  z-index: 45;
+  inset: 0;
+  left: 50%;
+  /* `translate` centres the column; `transform` is left free for the slide, so the
+     two never fight over the same property. */
+  translate: -50% 0;
+  width: 100%;
+  max-width: var(--app-w);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  animation: page-in 0.28s var(--ease-out) both;
+}
+
+@media (min-width: 520px) {
+  .page {
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+}
+
+@keyframes page-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+.page.is-closing {
+  animation: page-out 0.2s var(--ease-out) both;
+}
+
+@keyframes page-out {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.page__bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: calc(env(safe-area-inset-top) + var(--sp-3)) var(--sp-4) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.page__title {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: capitalize;
+}
+
+.page__body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--sp-4) var(--sp-4) var(--sp-6);
+}
+
+.page__foot {
+  flex: none;
+  display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--sp-4));
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+
+/* ---------- Sliding indicators ----------
+   Borrowed from the BioProx app's SegmentedTabs: the active marker TRAVELS to
+   the new option on a spring instead of the background popping across. Its
+   Animated.spring (damping 15, stiffness 180, mass 0.8) maps to this curve —
+   quick, with a small settle at the end. */
+:root {
+  --ease-travel: cubic-bezier(0.32, 1.28, 0.5, 1);
+}
+
+/* Segmented control: one pill that slides between segments. */
+.seg {
+  position: relative;
+}
+
+.seg::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px - (var(--seg-count, 1) - 1) * 3px) / var(--seg-count, 1));
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  /* translateX percentages resolve against the pill's own width, so one step is
+     exactly one segment plus the 3px gap. */
+  transform: translateX(calc(var(--seg-index, 0) * (100% + 3px)));
+  transition: transform 0.34s var(--ease-travel);
+}
+
+.seg__btn {
+  position: relative;
+  z-index: 1;
+}
+
+/* The pill supplies the surface now — the button must not paint its own. */
+.seg__btn.is-active {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Tab strip: one underline that slides between tabs. */
+.tabstrip::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: calc(100% / var(--tab-count, 1));
+  height: 2.5px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  transform: translateX(calc(var(--tab-index, 0) * 100%)) scaleX(0.66);
+  transition: transform 0.34s var(--ease-travel);
+}
+
+/* Replaced by the sliding bar above. */
+.tabstrip__tab::after {
+  content: none;
+}
+
+/* Bottom bar: the same travelling marker. */
+.tabbar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% / var(--tab-count, 1));
+  height: 2.5px;
+  border-radius: 0 0 3px 3px;
+  background: var(--accent);
+  transform: translateX(calc(var(--tab-index, 0) * 100%)) scaleX(0.22);
+  transition: transform 0.34s var(--ease-travel);
+}
+
+.tabbar__btn::before {
+  content: none;
+}
+
+/* Search revealed from the period bar */
+.search-bar--reveal {
+  animation: search-reveal 0.26s var(--ease-out) backwards;
+}
+
+@keyframes search-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+.icon-btn.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+
+/* ---------- Category filter chips ----------
+   A tinted icon tile inside a pill read as two competing shapes and made the row
+   heavy. A small colour dot carries the same coding at a fraction of the weight,
+   and the selected chip fills with that category's own colour. */
+.chip--cat {
+  height: 32px;
+  padding: 0 var(--sp-3);
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.chip__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--cat-color);
+  transition: background 0.18s;
+}
+
+.chip--cat[aria-pressed="true"] {
+  background: var(--cat-color);
+  border-color: var(--cat-color);
+  color: #fff;
+}
+
+.chip--cat[aria-pressed="true"] .chip__dot {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* "All" keeps the app accent rather than borrowing a category colour. */
+.chip-row > .chip:first-child[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.chip-row {
+  gap: 6px;
+  padding-top: var(--sp-1);
+  padding-bottom: var(--sp-1);
 }

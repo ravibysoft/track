@@ -500,7 +500,9 @@ ol {
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Auto columns, not a hardcoded 4 — the bar went from four tabs to three. */
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
   border-top: 1px solid var(--border);

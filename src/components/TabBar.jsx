@@ -1,15 +1,20 @@
 import Icon from "./Icon.jsx";
 
 const TABS = [
-  { id: "home", label: "Home", icon: "home" },
-  { id: "history", label: "History", icon: "history" },
+  { id: "trans", label: "Trans.", icon: "history" },
   { id: "stats", label: "Stats", icon: "stats" },
   { id: "settings", label: "Settings", icon: "settings" },
 ];
 
 export default function TabBar({ active, onChange }) {
   return (
-    <nav className="tabbar">
+    <nav
+      className="tabbar"
+      style={{
+        "--tab-index": TABS.findIndex((t) => t.id === active),
+        "--tab-count": TABS.length,
+      }}
+    >
       {TABS.map((tab) => (
         <button
           key={tab.id}

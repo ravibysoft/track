@@ -5,8 +5,7 @@ import TabBar from "./components/TabBar.jsx";
 import useInstallPrompt from "./hooks/useInstallPrompt.js";
 import { isNative } from "./lib/storage.js";
 import HistoryScreen from "./screens/HistoryScreen.jsx";
-import HomeScreen from "./screens/HomeScreen.jsx";
-import ExpenseFormSheet from "./screens/ExpenseFormSheet.jsx";
+import ExpenseFormPage from "./screens/ExpenseFormPage.jsx";
 import SettingsScreen from "./screens/SettingsScreen.jsx";
 import { useExpenses } from "./state/useExpenses.js";
 
@@ -15,13 +14,13 @@ import { useExpenses } from "./state/useExpenses.js";
 const StatsScreen = lazy(() => import("./screens/StatsScreen.jsx"));
 
 /** Left-to-right order of the tab bar, used to pick the slide direction. */
-const TAB_ORDER = ["home", "history", "stats", "settings"];
+const TAB_ORDER = ["trans", "stats", "settings"];
 
 export default function App() {
   const { loaded, currency, add, update, remove, restore, settings } = useExpenses();
   const install = useInstallPrompt();
 
-  const [tab, setTab] = useState("home");
+  const [tab, setTab] = useState("trans");
   const [form, setForm] = useState(null); // null | { expense: Expense | null }
   const [budgetSheet, setBudgetSheet] = useState(false);
   const [toast, setToast] = useState(null);
@@ -90,7 +89,7 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [tab]);
 
-  /* Android hardware Back: close what's on top, then fall back to Home, then exit.
+  /* Android hardware Back: close what's on top, then fall back to Trans., then exit.
      The handler lives in a ref so the native listener is registered only once. */
   const backRef = useRef(() => false);
   useEffect(() => {
@@ -103,10 +102,10 @@ export default function App() {
         setBudgetSheet(false);
         return true;
       }
-      if (tab !== "home") {
+      if (tab !== "trans") {
         // changeTab, not setTab — otherwise going Back keeps the last forward
         // direction and the screen slides in from the wrong side.
-        changeTab("home");
+        changeTab("trans");
         return true;
       }
       return false;
@@ -159,10 +158,9 @@ export default function App() {
     <div className="app">
       {/* Keyed on the tab so switching remounts the host and replays its slide-in. */}
       <div className="screen-host" key={tab} data-direction={direction}>
-        {tab === "home" && (
-          <HomeScreen
+        {tab === "trans" && (
+          <HistoryScreen
             install={install}
-            onAdd={openAdd}
             onEdit={openEdit}
             onDelete={deleteWithUndo}
             onOpenSettings={() => {
@@ -171,7 +169,6 @@ export default function App() {
             }}
           />
         )}
-        {tab === "history" && <HistoryScreen onEdit={openEdit} onDelete={deleteWithUndo} />}
         {tab === "stats" && (
           <Suspense fallback={<div className="screen"><div className="boot" /></div>}>
             <StatsScreen />
@@ -196,7 +193,7 @@ export default function App() {
       <TabBar active={tab} onChange={changeTab} />
 
       {form && (
-        <ExpenseFormSheet
+        <ExpenseFormPage
           key={form.id}
           expense={form.expense}
           currency={currency}

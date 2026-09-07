@@ -162,16 +162,16 @@ await act(async () => {
 await settle();
 
 console.log("\nHome screen");
-check("renders the Today header", text(".appbar__title") === "Today", `got "${text(".appbar__title")}"`);
-check("starts at ₹0", text(".hero__amount") === "₹0", `got "${text(".hero__amount")}"`);
-check("shows the empty state", text(".empty__title").includes("Nothing today"));
-check("shows all four tabs", $$(".tabbar__btn").length === 4);
+check("lands on the Trans. screen", /\d{4}/.test(text(".period-bar__label")), `got "${text(".period-bar__label")}"`);
+check("starts at ₹0", text(".summary-bar__value--expense") === "₹0", `got "${text(".summary-bar__value--expense")}"`);
+check("shows the empty state", text(".empty__title").includes("No data available"), `got "${text(".empty__title")}"`);
+check("bottom bar has three tabs", $$(".tabbar__btn").length === 3, `${$$(".tabbar__btn").length} tabs`);
 
 console.log("\nAdd an expense");
 await click($(".fab"), "FAB");
 await settle();
-check("opens the add sheet", text(".sheet__title") === "Add expense", `got "${text(".sheet__title")}"`);
-check("Add button starts disabled", $(".sheet__foot .btn--primary")?.disabled === true);
+check("opens the add sheet", text(".page__title") === "Add expense", `got "${text(".page__title")}"`);
+check("Add button starts disabled", $(".page__foot .btn--primary")?.disabled === true);
 check("amount is a real input, so the phone keyboard opens", $(".form-row--amount input")?.tagName === "INPUT");
 check("it asks for the numeric keyboard", $(".form-row--amount input")?.getAttribute("inputmode") === "decimal", `got "${$(".form-row--amount input")?.getAttribute("inputmode")}"`);
 check("it is focused on open so the keyboard is already up", document.activeElement === $(".form-row--amount input"));
@@ -181,15 +181,15 @@ await type($(".form-row--amount input"), "250.50");
 await click(byText(".cat-option", "Food"), "Food category");
 await type($('input[aria-label="Note"]'), "Lunch at office");
 await settle();
-check("Add button enables once an amount is typed", $(".sheet__foot .btn--primary")?.disabled === false);
+check("Add button enables once an amount is typed", $(".page__foot .btn--primary")?.disabled === false);
 
-await click($(".sheet__foot .btn--primary"), "Add expense");
+await click($(".page__foot .btn--primary"), "Add expense");
 await settle();
 
 check("expense appears in today's list", $$(".row").length === 1, `${$$(".row").length} rows`);
 check("row shows the note", text(".row__title") === "Lunch at office", `got "${text(".row__title")}"`);
 check("row shows ₹250.50", text(".row__amount") === "₹250.50", `got "${text(".row__amount")}"`);
-check("today's total updates", text(".hero__amount") === "₹250.50", `got "${text(".hero__amount")}"`);
+check("today's total updates", text(".summary-bar__value--expense") === "₹250.50", `got "${text(".summary-bar__value--expense")}"`);
 check("confirmation toast shows", text(".snackbar").includes("Expense added"));
 check("persisted to storage", (localStorage.getItem("rozkharcha.v1") ?? "").includes("Lunch at office"));
 
@@ -200,26 +200,26 @@ await type($(".form-row--amount input"), "125400");
 await click(byText(".cat-option", "Shopping"), "Shopping category");
 await settle();
 check("previews ₹1,25,400 (en-IN grouping)", text(".amount-input__echo") === "₹1,25,400", `got "${text(".amount-input__echo")}"`);
-await click($(".sheet__foot .btn--primary"), "Add expense");
+await click($(".page__foot .btn--primary"), "Add expense");
 await settle();
 check("two expenses now listed", $$(".row").length === 2, `${$$(".row").length} rows`);
-check("total is ₹1,25,650.50", text(".hero__amount") === "₹1,25,650.50", `got "${text(".hero__amount")}"`);
+check("total is ₹1,25,650.50", text(".summary-bar__value--expense") === "₹1,25,650.50", `got "${text(".summary-bar__value--expense")}"`);
 
 console.log("\nEdit an expense");
 await click(byText(".row", "Lunch at office"), "Lunch row");
 await settle();
-check("opens the edit sheet", text(".sheet__title") === "Edit expense", `got "${text(".sheet__title")}"`);
+check("opens the edit sheet", text(".page__title") === "Edit expense", `got "${text(".page__title")}"`);
 check("prefills the amount", $(".form-row--amount input")?.value === "250.5", `got "${$(".form-row--amount input")?.value}"`);
 await type($(".form-row--amount input"), "300");
-await click($(".sheet__foot .btn--primary"), "Save changes");
+await click($(".page__foot .btn--primary"), "Save changes");
 await settle();
 check("edited amount shows in the list", !!byText(".row__amount", "₹300"));
-check("total recalculates", text(".hero__amount") === "₹1,25,700", `got "${text(".hero__amount")}"`);
+check("total recalculates", text(".summary-bar__value--expense") === "₹1,25,700", `got "${text(".summary-bar__value--expense")}"`);
 
 console.log("\nDelete + undo");
 await click(byText(".row", "Lunch at office"), "Lunch row");
 await settle();
-await click($(".sheet__foot .btn--danger"), "Delete");
+await click($(".page__bar .icon-btn[aria-label=\"Delete expense\"]"), "Delete");
 await settle();
 check("expense removed", $$(".row").length === 1, `${$$(".row").length} rows`);
 check("undo offered", text(".snackbar").includes("Expense deleted"));
@@ -228,7 +228,7 @@ await settle();
 check("undo restores it", $$(".row").length === 2, `${$$(".row").length} rows`);
 
 console.log("\nHistory tab");
-await click(byText(".tabbar__btn", "History"), "History tab");
+await click(byText(".tabbar__btn", "Trans."), "Trans. tab");
 await settle();
 check("period bar shows the month", /\d{4}/.test(text(".period-bar__label")), `got "${text(".period-bar__label")}"`);
 check("Daily / Calendar / Monthly / Total tabs render", $$(".tabstrip__tab").length === 4, `${$$(".tabstrip__tab").length} tabs`);
@@ -238,11 +238,16 @@ check("groups under a day heading", text(".day-head__label") === "Today", `got "
 check("day subtotal shown", text(".day-head__total") === "₹1,25,700", `got "${text(".day-head__total")}"`);
 check("both expenses listed", $$(".row").length === 2, `${$$(".row").length} rows`);
 
+check("search box is hidden until asked for", !$(".search-bar"));
+await click($('.period-bar .icon-btn[aria-label="Search"]'), "search icon");
+await settle();
+check("the search icon reveals the box", !!$(".search-bar"));
 await type($('.search-bar input'), "lunch");
 await settle();
 check("search filters to one row", $$(".row").length === 1, `${$$(".row").length} rows`);
-await click($(".search-bar .icon-btn"), "clear search");
+await click($('.period-bar .icon-btn[aria-label="Close search"]'), "close search");
 await settle();
+check("closing search clears the filter and hides the box", !$(".search-bar") && $$(".row").length === 2, `${$$(".row").length} rows`);
 
 await click(byText(".chip", "Shopping"), "Shopping filter");
 await settle();
@@ -254,7 +259,7 @@ console.log("\nStats tab");
 await click(byText(".tabbar__btn", "Stats"), "Stats tab");
 await act(async () => { await new Promise((r) => setTimeout(r, 400)); });
 check("stats header renders", text(".appbar__title") === "Stats", `got "${text(".appbar__title")}"`);
-check("month total shown", text(".hero__amount") === "₹1,25,700", `got "${text(".hero__amount")}"`);
+check("month total shown", text(".hero__amount") === "₹1,25,700", `got "${text(".hero__amount")}"`);
 check("category breakdown rendered", $$(".bd-row").length === 2, `${$$(".bd-row").length} rows`);
 check("donut centre shows a compact total", text(".donut__value") === "₹1.3L", `got "${text(".donut__value")}"`);
 check("donut slices drawn", $$(".recharts-sector").length === 2, `${$$(".recharts-sector").length} sectors`);
@@ -269,15 +274,19 @@ check("shows the recorded count", !!byText(".hstack", "Entries recorded"));
 
 await click(byText(".setting-row__label", "Monthly budget")?.closest("button"), "budget row");
 await settle();
-check("opens the budget sheet", text(".sheet__title") === "Monthly budget", `got "${text(".sheet__title")}"`);
+check("opens the budget sheet", text(".sheet__title") === "Monthly budget", `got "${text(".sheet__title")}"`);
 await click(byText(".chip", "₹20,000"), "₹20,000 preset");
-await click($(".sheet__foot .btn--primary"), "Save budget");
+await click($(".sheet__foot .btn--primary"), "Save budget");
 await settle();
 
-await click(byText(".tabbar__btn", "Home"), "Home tab");
+await click(byText(".tabbar__btn", "Trans."), "Trans. tab");
 await settle();
-check("budget bar appears on Home", !!$(".budget__track"));
-check("over-budget warning shows", text(".budget__meta").includes("over budget"), `got "${text(".budget__meta")}"`);
+await click(byText(".tabbar__btn", "Trans."), "Trans. tab");
+await settle();
+await click(byText(".tabstrip__tab", "Total"), "Total tab");
+await settle();
+check("budget bar appears on the Total tab", !!$(".budget__track"));
+check("over-budget warning shows", text(".budget__meta").includes("over budget"), `got "${text(".budget__meta")}"`);
 
 console.log("\nTheme switch");
 await click(byText(".tabbar__btn", "Settings"), "Settings tab");
@@ -294,8 +303,10 @@ await act(async () => {
 });
 await settle();
 check("expenses survive a reload", $$(".row").length === 2, `${$$(".row").length} rows`);
-check("total survives a reload", text(".hero__amount") === "₹1,25,700", `got "${text(".hero__amount")}"`);
-check("budget survives a reload", !!$(".budget__track"));
+check("total survives a reload", text(".summary-bar__value--expense") === "₹1,25,700", `got "${text(".summary-bar__value--expense")}"`);
+await click(byText(".tabstrip__tab", "Total"), "Total tab");
+await settle();
+check("budget survives a reload", !!$(".budget__track"));
 check("theme survives a reload", document.documentElement.getAttribute("data-theme") === "dark");
 
 
@@ -411,22 +422,22 @@ console.log("Income + calendar in the UI");
   await settle();
   await click(byText(".seg__btn", "Income"), "Income toggle");
   await settle();
-  check("the sheet becomes an income sheet", text(".sheet__title") === "Add income", `got "${text(".sheet__title")}"`);
+  check("the sheet becomes an income sheet", text(".page__title") === "Add income", `got "${text(".page__title")}"`);
   check("income categories replace expense ones", !!byText(".cat-option", "Salary"));
   check("expense categories are gone", !byText(".cat-option", "Groceries"));
 
   await type($(".form-row--amount input"), "5000");
   await click(byText(".cat-option", "Salary"), "Salary");
-  await click($(".sheet__foot .btn"), "Add income");
+  await click($(".page__foot .btn"), "Add income");
   await settle();
 
   check("income row is marked with a plus", text(".row__amount").startsWith("+"), `got "${text(".row__amount")}"`);
-  const ledger = $$(".ledger__value").map((e) => e.textContent.trim());
+  const ledger = $$(".summary-bar__value").map((e) => e.textContent.trim());
   check("ledger shows the income", ledger[0] === "₹5,000", `got ${JSON.stringify(ledger)}`);
   check("ledger balance equals the income", ledger[2] === "₹5,000", `got ${JSON.stringify(ledger)}`);
-  check("income does not count as spending", text(".hero__amount") === "₹0", `got "${text(".hero__amount")}"`);
+  check("income does not count as spending", text(".summary-bar__value--expense") === "₹0", `got "${text(".summary-bar__value--expense")}"`);
 
-  await click(byText(".tabbar__btn", "History"), "History tab");
+  await click(byText(".tabbar__btn", "Trans."), "Trans. tab");
   await settle();
   await click(byText(".tabstrip__tab", "Calendar"), "Calendar tab");
   await settle();

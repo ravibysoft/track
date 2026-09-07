@@ -138,7 +138,13 @@ export default function SettingsScreen({ install, onToast, budgetSheetOpen, onBu
       {/* Appearance */}
       <h2 className="section-title">Appearance</h2>
       <div className="card card--pad">
-        <div className="seg">
+        <div
+          className="seg"
+          style={{
+            "--seg-index": THEMES.findIndex((t) => t.id === settings.theme),
+            "--seg-count": THEMES.length,
+          }}
+        >
           {THEMES.map((t) => (
             <button
               key={t.id}

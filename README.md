@@ -11,10 +11,14 @@ Ships two ways from one codebase:
 
 ## What it does
 
-- **Add / edit / delete** expenses **and income** — amount, category, date, note, and how it was paid
-- **Home** — spent today, an Income / Expense / Balance strip, and a monthly budget bar
-- **History** — a **month calendar** with each day's total in the cell, or a list grouped
-  day by day, with search, category filters and per-day subtotals
+- **Add / edit / delete** expenses **and income** on a full screen (not a popup) — amount,
+  category, date, note and how it was paid, with **Save** or **Continue** to log another
+- **Trans.** — one screen with **Daily / Calendar / Monthly / Total** tabs, a `< month >`
+  period bar and a persistent Income / Expenses / Total summary:
+  - *Daily* — entries grouped day by day with per-day totals, search and category filters
+  - *Calendar* — a month grid with each day's spend in its cell
+  - *Monthly* — every month of the year with income, expense and net
+  - *Total* — the budget bar, what's left, and spending split by Cash / UPI / Card
 - **Stats** — **Week / Month / Year** periods, a donut by category, a bar chart per day
   (or per month for the year view), and a period-over-period trend
 - **Backup** — export `.json` (restorable) or `.csv` (opens in Excel), share, or restore

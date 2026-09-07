@@ -171,7 +171,13 @@ export default function StatsScreen() {
         </div>
       </header>
 
-      <div className="seg">
+      <div
+        className="seg"
+        style={{
+          "--seg-index": PERIODS.findIndex((p) => p.id === period),
+          "--seg-count": PERIODS.length,
+        }}
+      >
         {PERIODS.map((p) => (
           <button
             key={p.id}

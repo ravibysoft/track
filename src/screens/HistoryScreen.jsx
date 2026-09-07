@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import CategoryIcon from "../components/CategoryIcon.jsx";
+import BudgetBar from "../components/BudgetBar.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ExpenseRow from "../components/ExpenseRow.jsx";
 import Icon from "../components/Icon.jsx";
+import InstallCard from "../components/InstallCard.jsx";
 import MonthCalendar from "../components/MonthCalendar.jsx";
 import SummaryBar from "../components/SummaryBar.jsx";
 import { EXPENSE_CATEGORIES, getCategory } from "../lib/categories.js";
@@ -29,7 +30,7 @@ const TABS = [
 
 const labelOf = (id) => getCategory(id).label;
 
-export default function HistoryScreen({ onEdit, onDelete }) {
+export default function HistoryScreen({ install, onEdit, onDelete, onOpenSettings }) {
   const { expenses, settings, currency } = useExpenses();
 
   const [tab, setTab] = useState("daily");
@@ -37,6 +38,7 @@ export default function HistoryScreen({ onEdit, onDelete }) {
   const [year, setYear] = useState(currentYear);
   const [query, setQuery] = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [categoryId, setCategoryId] = useState(null);
 
   /* Monthly lists a whole year; the other tabs work a single month. */
@@ -101,10 +103,27 @@ export default function HistoryScreen({ onEdit, onDelete }) {
         >
           <Icon name="right" />
         </button>
+        <button
+          type="button"
+          className={`icon-btn${searchOpen ? " is-active" : ""}`}
+          onClick={() => {
+            // Closing clears the query, so results are never filtered by a box
+            // you can no longer see.
+            if (searchOpen) setQuery("");
+            setSearchOpen((open) => !open);
+          }}
+          aria-label={searchOpen ? "Close search" : "Search"}
+          aria-pressed={searchOpen}
+        >
+          <Icon name={searchOpen ? "close" : "search"} />
+        </button>
       </header>
 
       {/* Daily / Calendar / Monthly / Total */}
-      <nav className="tabstrip">
+      <nav
+        className="tabstrip"
+        style={{ "--tab-index": TABS.findIndex((t) => t.id === tab), "--tab-count": TABS.length }}
+      >
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -125,27 +144,32 @@ export default function HistoryScreen({ onEdit, onDelete }) {
 
       {tab === "daily" && (
         <>
-          <label className="search-bar">
-            <Icon name="search" size={17} />
-            <input
-              className="grow"
-              type="search"
-              placeholder="Search note, amount or category"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search entries"
-            />
-            {query && (
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => setQuery("")}
-                aria-label="Clear search"
-              >
-                <Icon name="close" />
-              </button>
-            )}
-          </label>
+          {install?.canInstall && <InstallCard onInstall={install.promptInstall} />}
+
+          {searchOpen && (
+            <label className="search-bar search-bar--reveal">
+              <Icon name="search" size={17} />
+              <input
+                className="grow"
+                type="search"
+                placeholder="Search note, amount or category"
+                value={query}
+                autoFocus
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="Search entries"
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => setQuery("")}
+                  aria-label="Clear search"
+                >
+                  <Icon name="close" />
+                </button>
+              )}
+            </label>
+          )}
 
           <div className="chip-row">
             <button
@@ -160,11 +184,12 @@ export default function HistoryScreen({ onEdit, onDelete }) {
               <button
                 key={c.id}
                 type="button"
-                className="chip"
+                className="chip chip--cat"
+                style={{ "--cat-color": c.color }}
                 aria-pressed={categoryId === c.id}
                 onClick={() => setCategoryId(categoryId === c.id ? null : c.id)}
               >
-                <CategoryIcon id={c.id} size="sm" />
+                <span className="chip__dot" />
                 {c.label}
               </button>
             ))}
@@ -271,13 +296,14 @@ export default function HistoryScreen({ onEdit, onDelete }) {
           budget={settings.monthlyBudget}
           currency={currency}
           previousSpent={previousSpent}
+          onOpenSettings={onOpenSettings}
         />
       )}
     </div>
   );
 }
 
-function TotalTab({ items, summary, budget, currency, previousSpent }) {
+function TotalTab({ items, summary, budget, currency, previousSpent, onOpenSettings }) {
   const byMode = useMemo(() => {
     const map = new Map();
     for (const e of db.spending(items)) {
@@ -291,24 +317,13 @@ function TotalTab({ items, summary, budget, currency, previousSpent }) {
   return (
     <>
       <h2 className="section-title">Budget</h2>
-      <div className="card card--pad stack">
-        {budget > 0 ? (
-          <>
-            <div className="hstack">
-              <span className="grow setting-row__hint">Monthly budget</span>
-              <strong className="num">{formatMoney(budget, currency)}</strong>
-            </div>
-            <div className="hstack">
-              <span className="grow setting-row__hint">Left to spend</span>
-              <strong className={`num${budget - summary.expense < 0 ? " ledger__value--expense" : ""}`}>
-                {formatMoney(budget - summary.expense, currency)}
-              </strong>
-            </div>
-          </>
-        ) : (
-          <span className="setting-row__hint">No budget set — add one in Settings.</span>
-        )}
-      </div>
+      {/* The progress bar used to live on Home; it belongs with the budget figures. */}
+      <BudgetBar
+        spent={summary.expense}
+        budget={budget}
+        currency={currency}
+        onSetBudget={onOpenSettings}
+      />
 
       <h2 className="section-title">This period</h2>
       <div className="card card--pad stack">
