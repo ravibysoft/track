@@ -30,7 +30,12 @@ const TABS = [
 
 const labelOf = (id) => getCategory(id).label;
 
-export default function HistoryScreen({ install, onEdit, onDelete, onOpenSettings }) {
+export default function HistoryScreen({
+  install,
+  onEdit,
+  onDelete,
+  onOpenSettings,
+}) {
   const { expenses, settings, currency } = useExpenses();
 
   const [tab, setTab] = useState("daily");
@@ -44,7 +49,10 @@ export default function HistoryScreen({ install, onEdit, onDelete, onOpenSetting
   /* Monthly lists a whole year; the other tabs work a single month. */
   const yearly = tab === "monthly";
 
-  const monthItems = useMemo(() => db.inMonth(expenses, month), [expenses, month]);
+  const monthItems = useMemo(
+    () => db.inMonth(expenses, month),
+    [expenses, month],
+  );
   const yearItems = useMemo(
     () => db.betweenDays(expenses, `${year}-01-01`, `${year}-12-31`),
     [expenses, year],
@@ -67,13 +75,19 @@ export default function HistoryScreen({ install, onEdit, onDelete, onOpenSetting
     () =>
       yearMonths(year).map((key) => {
         const items = db.inMonth(expenses, key);
-        return { key, label: monthLabel(key).split(" ")[0], ...db.totals(items) };
+        return {
+          key,
+          label: monthLabel(key).split(" ")[0],
+          ...db.totals(items),
+        };
       }),
     [expenses, year],
   );
 
   const step = (delta) =>
-    yearly ? setYear((y) => shiftYear(y, delta)) : setMonth((m) => shiftMonth(m, delta));
+    yearly
+      ? setYear((y) => shiftYear(y, delta))
+      : setMonth((m) => shiftMonth(m, delta));
 
   /* Spelled out rather than spreading Object.values(range) — that would silently
      depend on key order. */
@@ -86,230 +100,264 @@ export default function HistoryScreen({ install, onEdit, onDelete, onOpenSetting
   const periodLabel = yearly ? year : monthLabel(month);
 
   return (
-    <div className="screen">
-      {/* Period bar — the month (or the year, on Monthly) */}
-      <header className="period-bar">
-        <button type="button" className="icon-btn" onClick={() => step(-1)} aria-label="Previous">
-          <Icon name="left" />
-        </button>
-        <span className="period-bar__label">{periodLabel}</span>
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={() => step(1)}
-          disabled={atLatest}
-          style={atLatest ? { opacity: 0.35, pointerEvents: "none" } : undefined}
-          aria-label="Next"
-        >
-          <Icon name="right" />
-        </button>
-        {/* Only Daily has a list to filter, so the toggle appears only there —
+    <div className="screen screen--split">
+      {/* Pinned header: period bar, tabs and summary stay put while the list scrolls. */}
+      <div className="screen__fixed">
+        {/* Period bar — the month (or the year, on Monthly) */}
+        <header className="period-bar">
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => step(-1)}
+            aria-label="Previous"
+          >
+            <Icon name="left" />
+          </button>
+          <span className="period-bar__label">{periodLabel}</span>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => step(1)}
+            disabled={atLatest}
+            style={
+              atLatest ? { opacity: 0.35, pointerEvents: "none" } : undefined
+            }
+            aria-label="Next"
+          >
+            <Icon name="right" />
+          </button>
+          {/* Only Daily has a list to filter, so the toggle appears only there —
             otherwise it opened an X with no box behind it. */}
-        {tab === "daily" && (
-          <button
-            type="button"
-            className={`icon-btn${searchOpen ? " is-active" : ""}`}
-            onClick={() => {
-              // Closing clears the query, so results are never filtered by a box
-              // you can no longer see.
-              if (searchOpen) setQuery("");
-              setSearchOpen((open) => !open);
-            }}
-            aria-label={searchOpen ? "Close search" : "Search"}
-            aria-pressed={searchOpen}
-          >
-            <Icon name={searchOpen ? "close" : "search"} />
-          </button>
-        )}
-      </header>
-
-      {/* Daily / Calendar / Monthly / Total */}
-      <nav
-        className="tabstrip"
-        style={{ "--tab-index": TABS.findIndex((t) => t.id === tab), "--tab-count": TABS.length }}
-      >
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className={`tabstrip__tab${tab === t.id ? " is-active" : ""}`}
-            onClick={() => {
-              setTab(t.id);
-              setSelectedDay(null);
-              setSearchOpen(false);
-              setQuery("");
-            }}
-            aria-pressed={tab === t.id}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      <SummaryBar totals={summary} currency={currency} />
-
-      {tab === "daily" && (
-        <>
-          {install?.canInstall && <InstallCard onInstall={install.promptInstall} />}
-
-          {searchOpen && (
-            <label className="search-bar search-bar--reveal">
-              <Icon name="search" size={17} />
-              <input
-                className="grow"
-                type="search"
-                placeholder="Search note, amount or category"
-                value={query}
-                autoFocus
-                onChange={(e) => setQuery(e.target.value)}
-                aria-label="Search entries"
-              />
-              {query && (
-                <button
-                  type="button"
-                  className="icon-btn"
-                  onClick={() => setQuery("")}
-                  aria-label="Clear search"
-                >
-                  <Icon name="close" />
-                </button>
-              )}
-            </label>
-          )}
-
-          <div className="chip-row">
+          {tab === "daily" && (
             <button
               type="button"
-              className="chip"
-              aria-pressed={categoryId === null}
-              onClick={() => setCategoryId(null)}
+              className={`icon-btn${searchOpen ? " is-active" : ""}`}
+              onClick={() => {
+                // Closing clears the query, so results are never filtered by a box
+                // you can no longer see.
+                if (searchOpen) setQuery("");
+                setSearchOpen((open) => !open);
+              }}
+              aria-label={searchOpen ? "Close search" : "Search"}
+              aria-pressed={searchOpen}
             >
-              All
+              <Icon name={searchOpen ? "close" : "search"} />
             </button>
-            {EXPENSE_CATEGORIES.map((c) => (
+          )}
+        </header>
+
+        {/* Daily / Calendar / Monthly / Total */}
+        <nav
+          className="tabstrip"
+          style={{
+            "--tab-index": TABS.findIndex((t) => t.id === tab),
+            "--tab-count": TABS.length,
+          }}
+        >
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`tabstrip__tab${tab === t.id ? " is-active" : ""}`}
+              onClick={() => {
+                setTab(t.id);
+                setSelectedDay(null);
+                setSearchOpen(false);
+                setQuery("");
+              }}
+              aria-pressed={tab === t.id}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+
+        <SummaryBar totals={summary} currency={currency} />
+      </div>
+
+      <div className="screen__scroll">
+        {tab === "daily" && (
+          <>
+            {install?.canInstall && (
+              <InstallCard onInstall={install.promptInstall} />
+            )}
+
+            {searchOpen && (
+              <label className="search-bar search-bar--reveal">
+                <Icon name="search" size={17} />
+                <input
+                  className="grow"
+                  type="search"
+                  placeholder="Search note, amount or category"
+                  value={query}
+                  autoFocus
+                  onChange={(e) => setQuery(e.target.value)}
+                  aria-label="Search entries"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => setQuery("")}
+                    aria-label="Clear search"
+                  >
+                    <Icon name="close" />
+                  </button>
+                )}
+              </label>
+            )}
+
+            <div className="chip-row">
               <button
-                key={c.id}
                 type="button"
-                className="chip chip--cat"
-                style={{ "--cat-color": c.color }}
-                aria-pressed={categoryId === c.id}
-                onClick={() => setCategoryId(categoryId === c.id ? null : c.id)}
+                className="chip"
+                aria-pressed={categoryId === null}
+                onClick={() => setCategoryId(null)}
               >
-                <span className="chip__dot" />
-                {c.label}
+                All
+              </button>
+              {EXPENSE_CATEGORIES.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className="chip chip--cat"
+                  style={{ "--cat-color": c.color }}
+                  aria-pressed={categoryId === c.id}
+                  onClick={() =>
+                    setCategoryId(categoryId === c.id ? null : c.id)
+                  }
+                >
+                  <span className="chip__dot" />
+                  {c.label}
+                </button>
+              ))}
+            </div>
+
+            {dailyGroups.length === 0 ? (
+              <div className="card">
+                <EmptyState
+                  icon="wallet"
+                  title="No data available"
+                  text={
+                    expenses.length
+                      ? "Nothing in this month matches. Try another month or clear the search."
+                      : "Everything you add shows up here, grouped day by day."
+                  }
+                />
+              </div>
+            ) : (
+              dailyGroups.map((group) => (
+                <section key={group.day}>
+                  <div className="day-head">
+                    <span className="day-head__label">
+                      {dayLabel(group.day)}
+                    </span>
+                    <span className="day-head__totals">
+                      {group.income > 0 && (
+                        <span className="day-head__total ledger__value--income num">
+                          {formatMoney(group.income, currency)}
+                        </span>
+                      )}
+                      {group.expense > 0 && (
+                        <span className="day-head__total ledger__value--expense num">
+                          {formatMoney(group.expense, currency)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="card">
+                    <ul className="list">
+                      {group.items.map((expense, i) => (
+                        <li
+                          key={expense.id}
+                          className="row-item"
+                          style={{ animationDelay: `${Math.min(i, 6) * 20}ms` }}
+                        >
+                          {i > 0 && <div className="list__sep" />}
+                          <ExpenseRow
+                            expense={expense}
+                            currency={currency}
+                            onEdit={onEdit}
+                            onDelete={onDelete}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </section>
+              ))
+            )}
+          </>
+        )}
+
+        {tab === "calendar" && (
+          <>
+            <MonthCalendar
+              monthKey={month}
+              totals={dayTotals}
+              currency={currency}
+              selectedDay={selectedDay}
+              onSelectDay={(day) => {
+                setSelectedDay(day);
+                if (day) setTab("daily");
+              }}
+            />
+            <p className="hint">Tap a day to see what it holds.</p>
+          </>
+        )}
+
+        {tab === "monthly" && (
+          <div className="card setting-list">
+            {months.map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                className="month-row"
+                onClick={() => {
+                  setMonth(m.key);
+                  setTab("daily");
+                }}
+              >
+                <span className="month-row__name">{m.label}</span>
+                <span className="month-row__income num">
+                  {formatMoney(m.income, currency)}
+                </span>
+                <span className="month-row__figures">
+                  <span className="month-row__expense num">
+                    {formatMoney(m.expense, currency)}
+                  </span>
+                  <span className="month-row__net num">
+                    {formatMoney(m.net, currency)}
+                  </span>
+                </span>
               </button>
             ))}
           </div>
+        )}
 
-          {dailyGroups.length === 0 ? (
-            <div className="card">
-              <EmptyState
-                icon="wallet"
-                title="No data available"
-                text={
-                  expenses.length
-                    ? "Nothing in this month matches. Try another month or clear the search."
-                    : "Everything you add shows up here, grouped day by day."
-                }
-              />
-            </div>
-          ) : (
-            dailyGroups.map((group) => (
-              <section key={group.day}>
-                <div className="day-head">
-                  <span className="day-head__label">{dayLabel(group.day)}</span>
-                  <span className="day-head__totals">
-                    {group.income > 0 && (
-                      <span className="day-head__total ledger__value--income num">
-                        {formatMoney(group.income, currency)}
-                      </span>
-                    )}
-                    {group.expense > 0 && (
-                      <span className="day-head__total ledger__value--expense num">
-                        {formatMoney(group.expense, currency)}
-                      </span>
-                    )}
-                  </span>
-                </div>
-                <div className="card">
-                  <ul className="list">
-                    {group.items.map((expense, i) => (
-                      <li
-                        key={expense.id}
-                        className="row-item"
-                        style={{ animationDelay: `${Math.min(i, 6) * 20}ms` }}
-                      >
-                        {i > 0 && <div className="list__sep" />}
-                        <ExpenseRow
-                          expense={expense}
-                          currency={currency}
-                          onEdit={onEdit}
-                          onDelete={onDelete}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </section>
-            ))
-          )}
-        </>
-      )}
-
-      {tab === "calendar" && (
-        <>
-          <MonthCalendar
-            monthKey={month}
-            totals={dayTotals}
+        {tab === "total" && (
+          <TotalTab
+            items={periodItems}
+            summary={summary}
+            budget={settings.monthlyBudget}
             currency={currency}
-            selectedDay={selectedDay}
-            onSelectDay={(day) => {
-              setSelectedDay(day);
-              if (day) setTab("daily");
-            }}
+            previousSpent={previousSpent}
+            onOpenSettings={onOpenSettings}
           />
-          <p className="hint">Tap a day to see what it holds.</p>
-        </>
-      )}
-
-      {tab === "monthly" && (
-        <div className="card setting-list">
-          {months.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              className="month-row"
-              onClick={() => {
-                setMonth(m.key);
-                setTab("daily");
-              }}
-            >
-              <span className="month-row__name">{m.label}</span>
-              <span className="month-row__income num">{formatMoney(m.income, currency)}</span>
-              <span className="month-row__figures">
-                <span className="month-row__expense num">{formatMoney(m.expense, currency)}</span>
-                <span className="month-row__net num">{formatMoney(m.net, currency)}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {tab === "total" && (
-        <TotalTab
-          items={periodItems}
-          summary={summary}
-          budget={settings.monthlyBudget}
-          currency={currency}
-          previousSpent={previousSpent}
-          onOpenSettings={onOpenSettings}
-        />
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
-function TotalTab({ items, summary, budget, currency, previousSpent, onOpenSettings }) {
+function TotalTab({
+  items,
+  summary,
+  budget,
+  currency,
+  previousSpent,
+  onOpenSettings,
+}) {
   const byMode = useMemo(() => {
     const map = new Map();
     for (const e of db.spending(items)) {
@@ -318,7 +366,10 @@ function TotalTab({ items, summary, budget, currency, previousSpent, onOpenSetti
     return map;
   }, [items]);
 
-  const compared = previousSpent > 0 ? Math.round((summary.expense / previousSpent) * 100) : null;
+  const compared =
+    previousSpent > 0
+      ? Math.round((summary.expense / previousSpent) * 100)
+      : null;
 
   return (
     <>
@@ -335,21 +386,29 @@ function TotalTab({ items, summary, budget, currency, previousSpent, onOpenSetti
       <div className="card card--pad stack">
         {compared !== null && (
           <div className="hstack">
-            <span className="grow setting-row__hint">Compared with last month</span>
+            <span className="grow setting-row__hint">
+              Compared with last month
+            </span>
             <strong className="num">{compared}%</strong>
           </div>
         )}
         <div className="hstack">
           <span className="grow setting-row__hint">Spent by cash</span>
-          <strong className="num">{formatMoney(byMode.get("cash") ?? 0, currency)}</strong>
+          <strong className="num">
+            {formatMoney(byMode.get("cash") ?? 0, currency)}
+          </strong>
         </div>
         <div className="hstack">
           <span className="grow setting-row__hint">Spent by UPI</span>
-          <strong className="num">{formatMoney(byMode.get("upi") ?? 0, currency)}</strong>
+          <strong className="num">
+            {formatMoney(byMode.get("upi") ?? 0, currency)}
+          </strong>
         </div>
         <div className="hstack">
           <span className="grow setting-row__hint">Spent by card</span>
-          <strong className="num">{formatMoney(byMode.get("card") ?? 0, currency)}</strong>
+          <strong className="num">
+            {formatMoney(byMode.get("card") ?? 0, currency)}
+          </strong>
         </div>
       </div>
     </>

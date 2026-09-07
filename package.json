@@ -12,7 +12,8 @@
     "apk": "vite build && cap sync android && node scripts/brand-android.mjs && node scripts/generate-icons.mjs && android\\gradlew.bat -p android assembleDebug",
     "apk:release": "vite build && cap sync android && node scripts/brand-android.mjs && node scripts/generate-icons.mjs && android\\gradlew.bat -p android assembleRelease",
     "icons": "node scripts/generate-icons.mjs",
-    "android:brand": "node scripts/brand-android.mjs"
+    "android:brand": "node scripts/brand-android.mjs",
+    "sample": "node scripts/make-sample-data.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.1",

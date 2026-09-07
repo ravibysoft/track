@@ -59,7 +59,7 @@ export default function SettingsScreen({ install, onToast, budgetSheetOpen, onBu
   };
 
   return (
-    <div className="screen">
+    <div className="screen screen--no-fab">
       <header className="appbar">
         <div>
           <h1 className="appbar__title">Settings</h1>

@@ -1,10 +1,42 @@
+import { createReadStream, existsSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const here = dirname(fileURLToPath(import.meta.url))
+
+/**
+ * Serves samples/sample-data.json at /sample-data.json while developing.
+ *
+ * `apply: 'serve'` means this plugin is not part of `vite build` at all, so the
+ * demo data can never reach dist/, the deployed site or the APK — which is why
+ * the file lives outside public/.
+ */
+function sampleDataDevOnly() {
+  return {
+    name: 'sample-data-dev-only',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/sample-data.json', (_req, res) => {
+        const file = resolve(here, 'samples/sample-data.json')
+        if (!existsSync(file)) {
+          res.statusCode = 404
+          res.end('No sample data yet — run: npm run sample')
+          return
+        }
+        res.setHeader('Content-Type', 'application/json')
+        createReadStream(file).pipe(res)
+      })
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
     react(),
+    sampleDataDevOnly(),
     VitePWA({
       // The app registers the worker itself (src/pwa.js) so it can skip doing so
       // inside the Android APK, where Capacitor already serves the assets locally.

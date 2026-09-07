@@ -22,6 +22,9 @@ Ships two ways from one codebase:
 - **Stats** — **Week / Month / Year** periods, a donut by category, a bar chart per day
   (or per month for the year view), and a period-over-period trend
 - **Backup** — export `.json` (restorable) or `.csv` (opens in Excel), share, or restore
+- A **fixed app shell**: the document never scrolls, so there is no pull-to-refresh,
+  no address-bar jump and no rubber-band at the edges. On Trans. the period bar, tabs
+  and summary stay pinned while only the list scrolls under them
 - A pure-white interface by default — cards separate by hairline borders and space
   rather than grey fills. Dark and System stay available in **Settings → Appearance**
 - ₹ with Indian digit grouping (₹1,25,400)
@@ -36,6 +39,36 @@ npm run dev
 
 Open <http://localhost:5173>. Vite also prints a `Network:` address like
 `http://192.168.1.5:5173` — open that on a phone on the same WiFi to try it on a real device.
+
+## Sample data (local development only)
+
+`npm run dev` seeds an **empty** store automatically, so the app opens with data in
+it rather than blank. Nothing to import.
+
+```bash
+npm run sample     # regenerates samples/sample-data.json (dates relative to today)
+```
+
+~196 entries over three months — salary and freelance income, everyday spending
+across all categories, monthly bills, and a few deliberate edge cases (an amount
+with paise, a very long note, an unbreakable word) so the layout is exercised
+rather than just filled.
+
+**It never ships.** The file lives in `samples/`, not `public/`, so Vite does not
+copy it into `dist/`. A dev-only plugin in [vite.config.js](vite.config.js) serves it
+at `/sample-data.json` while developing (`apply: 'serve'`, so it is not part of
+`vite build`), and the seeding code sits behind `import.meta.env.DEV`, which compiles
+to `false` in production — Rollup then drops the branch and
+[src/lib/devSample.js](src/lib/devSample.js) with it. Verified: the production build
+contains no reference to it, and the deployed site returns HTML, not JSON, for that path.
+
+Seeding happens **once**. Clearing the data in Settings leaves it cleared, so empty
+states stay testable. To load it again, remove the `rozkharcha.devSeeded` key from
+localStorage.
+
+You can also import it by hand anywhere (including the APK) via **Settings → Restore
+from backup** — but note that **restoring replaces everything**, so export your own
+backup first if that browser holds real entries.
 
 ## Checks
 

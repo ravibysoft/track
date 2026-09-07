@@ -11,9 +11,22 @@ export function ExpenseProvider({ children }) {
   /* Load once, then let every later change write itself back. */
   useEffect(() => {
     let alive = true;
-    readDoc().then((raw) => {
+    readDoc().then(async (raw) => {
       if (!alive) return;
-      setDoc(db.migrate(raw));
+      let next = db.migrate(raw);
+
+      /* While developing, an empty store is seeded from samples/sample-data.json
+         so the app has something to show. `import.meta.env.DEV` is compiled to
+         `false` in a production build, so this branch — and the module it
+         imports — are removed entirely from the shipped bundle. */
+      if (import.meta.env.DEV && next.expenses.length === 0) {
+        const { loadSampleData } = await import("../lib/devSample.js");
+        const sample = await loadSampleData();
+        if (!alive) return;
+        if (sample) next = sample;
+      }
+
+      setDoc(next);
       loadedRef.current = true;
       setLoaded(true);
     });

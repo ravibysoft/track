@@ -16,6 +16,12 @@ html,
 body,
 #root {
   height: 100%;
+  /* The document itself never scrolls — the app fills the viewport and only its
+     list areas scroll. That kills pull-to-refresh, the address-bar show/hide
+     jump, and the rubber-band at the page edges: the three things that most make
+     a web app feel like a page rather than an app. */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -75,10 +81,22 @@ ol {
   position: relative;
   width: 100%;
   max-width: var(--app-w);
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   isolation: isolate;
+  /* Chrome should not be long-press selectable or offer a callout menu — native
+     UI does not. Inputs opt back in below. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 @media (min-width: 520px) {
@@ -90,18 +108,60 @@ ol {
   }
 }
 
+/* A screen is its own scroll region now, not part of a scrolling document. */
 .screen {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
   padding: 0 var(--sp-4);
   /* Clears the tab bar *and* the 56px FAB that floats above it, so the last row
      in a list is never hidden behind either. */
   padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 88px);
 }
 
+.screen::-webkit-scrollbar {
+  display: none;
+}
+
+/* Split screens keep a pinned header with only the content below it scrolling —
+   the period bar, tabs and summary stay put the way a native screen's do. */
+.screen--split {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+.screen__fixed {
+  flex: none;
+}
+
+.screen__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 88px);
+}
+
+.screen__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.screen--no-fab {
+  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-6));
+}
+
 /* The screen host carries the tab transition. Only transform and opacity are
    animated, so the WebView can composite it on the GPU and hold 60fps. */
 .screen-host {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   /* `backwards`, not `both`: the from-state is applied before the run, and control
@@ -275,11 +335,11 @@ ol {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
+  min-height: 44px;
   padding: 0 var(--sp-4);
-  border-radius: var(--r-full);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 1px solid transparent;
   color: var(--text-dim);
   font-size: 13.5px;
   font-weight: 550;
@@ -296,14 +356,16 @@ ol {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
+  box-shadow: var(--shadow-1);
 }
 
 .chip-row {
   display: flex;
-  gap: var(--sp-2);
+  gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 2px var(--sp-4);
+  scroll-snap-type: x proximity;
+  padding: var(--sp-1) var(--sp-4) var(--sp-2);
   margin: 0 calc(var(--sp-4) * -1);
 }
 
@@ -318,7 +380,7 @@ ol {
   flex: none;
   width: 42px;
   height: 42px;
-  border-radius: var(--r-sm);
+  border-radius: 10px;
   background: color-mix(in srgb, var(--cat-color) 13%, transparent);
   color: var(--cat-color);
 }
@@ -331,7 +393,7 @@ ol {
 .cat--sm {
   width: 30px;
   height: 30px;
-  border-radius: 9px;
+  border-radius: 8px;
 }
 
 .cat--sm svg {
@@ -342,7 +404,7 @@ ol {
 .cat--lg {
   width: 52px;
   height: 52px;
-  border-radius: var(--r-md);
+  border-radius: 12px;
 }
 
 .cat--lg svg {
@@ -648,8 +710,8 @@ ol {
 .icon-btn {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--r-full);
   background: var(--surface-2);
   color: var(--text-dim);
