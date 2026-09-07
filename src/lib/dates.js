@@ -70,6 +70,13 @@ export function shortDayLabel(dayKey) {
   return format(date, sameYear ? "d MMM" : "d MMM yyyy");
 }
 
+/** "Mon, 7 Sep" — always absolute, with the weekday, and the year when it differs. */
+export function dateWithWeekday(dayKey) {
+  const date = fromKey(dayKey);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return format(date, sameYear ? "EEE, d MMM" : "EEE, d MMM yyyy");
+}
+
 export function fullDayLabel(dayKey) {
   return format(fromKey(dayKey), "d MMMM yyyy");
 }

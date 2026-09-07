@@ -951,6 +951,10 @@
   font-weight: 550;
 }
 
+.month-row__net.is-negative {
+  color: var(--danger);
+}
+
 @media (max-width: 360px) {
   .month-row {
     gap: var(--sp-2);
@@ -1036,6 +1040,29 @@
   cursor: pointer;
 }
 
+/* Reads as a control rather than a label, so it is obvious you can tap it to
+   reach any date — a month back, a year back, whatever. */
+.date-row__affordance {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  padding: 5px 8px 5px 10px;
+  border-radius: var(--r-full);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.date-row:active .date-row__affordance {
+  background: var(--surface-3);
+}
+
+.date-row .form-row__value {
+  flex: 1;
+  font-weight: 620;
+}
+
 .date-row input[type="date"] {
   position: absolute;
   inset: 0;
@@ -1061,6 +1088,58 @@
 /* The focused row gets an accent underline instead, the way the reference does. */
 .form-row:focus-within {
   border-bottom-color: var(--accent);
+}
+
+/* ---------- Money Manager-style form ---------- */
+.page__body--form {
+  padding-top: var(--sp-2);
+}
+
+.form-hero {
+  padding: var(--sp-4) 0 var(--sp-3);
+  text-align: center;
+}
+
+.form-hero .form-row--amount {
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 76px;
+  padding: var(--sp-2) 0;
+  border-bottom: 0;
+}
+
+.form-hero .form-row__label {
+  display: none;
+}
+
+.form-hero .form-row--amount .form-row__symbol {
+  flex: none;
+  font-size: 24px;
+  font-weight: 650;
+}
+
+.form-hero .form-row--amount input {
+  flex: 0 1 auto;
+  width: 8ch;
+  max-width: 70%;
+  min-width: 2ch;
+  font-size: 46px;
+  line-height: 1;
+  text-align: center;
+}
+
+.form-hero .amount-input__echo {
+  margin-top: var(--sp-1);
+}
+
+.form-type {
+  margin: 0 0 var(--sp-5);
+}
+
+.field--category {
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border);
 }
 
 /* ---------- Full-page form ---------- */
@@ -1247,6 +1326,12 @@
   gap: 7px;
   font-size: 13px;
   font-weight: 560;
+}
+
+/* Every chip is a snap target, including "All". It is a plain .chip, so when the
+   align lived on .chip--cat alone it was not a target — and the row opened
+   snapped past it, cutting "All" off the left edge. */
+.chip-row > .chip {
   scroll-snap-align: start;
 }
 
@@ -1280,4 +1365,309 @@
   gap: 6px;
   padding-top: var(--sp-1);
   padding-bottom: var(--sp-2);
+}
+
+
+/* ---------- Flat cards on Trans. ----------
+   A bordered box per day group meant a screen full of nested outlines. The day
+   header and the hairline row separators already carry the grouping, so on this
+   screen the card keeps its surface and rounding but drops the outline. */
+.card--flat {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* On a white ground a flat card is invisible, so the separators do the work —
+   pull them full width rather than indenting past the icon. */
+.card--flat .list__sep {
+  margin-left: 0;
+}
+
+
+/* ---------- Signed amounts ---------- */
+.row__amount--expense {
+  color: var(--danger);
+}
+
+.row__amount--income {
+  color: var(--ok);
+}
+
+
+.row__trail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+/* "Today" / "12 Mar" under the amount, as in the design. */
+.row__when {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+/* ---------- Home ---------- */
+.home__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: calc(env(safe-area-inset-top) + var(--sp-4)) 0 var(--sp-5);
+}
+
+.home__badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.home__greeting {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.home__app {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.home__eyebrow {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.home__headline {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  margin: var(--sp-2) 0 var(--sp-5);
+}
+
+.home__headline h1 {
+  flex: 1;
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+}
+
+.home__sun {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #fdf0cf;
+  color: #d98a12;
+}
+
+.home__sun--moon {
+  background: #e7ecfa;
+  color: #4a5aa8;
+}
+
+.home__sun svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* ---------- Balance card ---------- */
+.balance {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-5);
+  border-radius: var(--r-xl);
+  background: var(--hero-bg);
+  color: var(--hero-text);
+}
+
+.balance__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--hero-dim);
+}
+
+.balance__month {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--hero-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.balance__label {
+  margin-top: var(--sp-4);
+  font-size: 12.5px;
+  color: var(--hero-dim);
+}
+
+.balance__value {
+  font-size: 34px;
+  font-weight: 720;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+  margin-top: 2px;
+}
+
+.balance__split {
+  display: flex;
+  gap: var(--sp-4);
+  margin: var(--sp-5) 0 var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--hero-line);
+}
+
+.balance__stat {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--hero-dim);
+}
+
+.balance__statLabel {
+  font-size: 12.5px;
+}
+
+.balance__statValue {
+  flex: 1;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 680;
+  color: var(--hero-text);
+  white-space: nowrap;
+}
+
+.balance__statValue--in {
+  color: var(--hero-income);
+}
+
+.balance__track {
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--hero-line);
+  overflow: hidden;
+}
+
+.balance__fill {
+  height: 100%;
+  border-radius: var(--r-full);
+  background: var(--hero-income);
+  transition: width 0.45s var(--ease-out);
+}
+
+.balance__fill.is-over {
+  background: #f87171;
+}
+
+.balance__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--sp-3);
+  font-size: 12.5px;
+  color: var(--hero-dim);
+}
+
+.balance__budget {
+  color: var(--hero-text);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+/* ---------- Home actions ---------- */
+.home__actions {
+  display: flex;
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0 var(--sp-2);
+}
+
+.home__section {
+  margin-top: var(--sp-6);
+}
+
+.home__sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-1);
+}
+
+.home__sectionHead h2 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.home__seeAll {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: 620;
+  color: var(--accent);
+}
+
+.home__empty {
+  padding: var(--sp-5) var(--sp-2);
+  font-size: 13.5px;
+  color: var(--text-faint);
+}
+
+/* ---------- Tab bar with a raised Add ---------- */
+.tabbar__add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 620;
+  color: var(--accent);
+}
+
+.tabbar__addCircle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-top: -18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-fab);
+  transition: transform 0.14s var(--ease-out);
+}
+
+.tabbar__add:active .tabbar__addCircle {
+  transform: scale(0.9);
+}
+
+.tabbar__addCircle svg {
+  width: 22px;
+  height: 22px;
 }

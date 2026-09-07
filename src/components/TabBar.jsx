@@ -1,18 +1,25 @@
 import Icon from "./Icon.jsx";
 
 const TABS = [
-  { id: "trans", label: "Trans.", icon: "history" },
+  { id: "home", label: "Home", icon: "home" },
+  { id: "trans", label: "Trans.", icon: "calendar_grid" },
   { id: "stats", label: "Stats", icon: "stats" },
-  { id: "settings", label: "Settings", icon: "settings" },
+  { id: "backup", label: "Backup", icon: "download" },
 ];
 
-export default function TabBar({ active, onChange }) {
+/**
+ * Four destinations plus a raised Add button in the fifth slot.
+ *
+ * Add sits in the bar rather than floating over the list, so it never covers a
+ * row's amount the way the old floating button did.
+ */
+export default function TabBar({ active, onChange, onAdd }) {
   return (
     <nav
       className="tabbar"
       style={{
-        "--tab-index": TABS.findIndex((t) => t.id === active),
-        "--tab-count": TABS.length,
+        "--tab-index": Math.max(0, TABS.findIndex((t) => t.id === active)),
+        "--tab-count": TABS.length + 1,
       }}
     >
       {TABS.map((tab) => (
@@ -27,6 +34,13 @@ export default function TabBar({ active, onChange }) {
           <span>{tab.label}</span>
         </button>
       ))}
+
+      <button type="button" className="tabbar__add" onClick={onAdd} aria-label="Add an entry">
+        <span className="tabbar__addCircle">
+          <Icon name="plus" />
+        </span>
+        <span>Add</span>
+      </button>
     </nav>
   );
 }

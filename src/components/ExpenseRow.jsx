@@ -9,7 +9,7 @@ const LONG_PRESS_MS = 500;
  * One expense line. Tap opens the edit sheet; a long press jumps straight to
  * delete, which is the gesture people expect on Android list rows.
  */
-export default function ExpenseRow({ expense, currency, onEdit, onDelete }) {
+export default function ExpenseRow({ expense, currency, onEdit, onDelete, trailing }) {
   const timer = useRef(null);
   const longPressed = useRef(false);
   const origin = useRef({ x: 0, y: 0 });
@@ -68,9 +68,14 @@ export default function ExpenseRow({ expense, currency, onEdit, onDelete }) {
           ))}
         </span>
       </span>
-      <span className={`row__amount num${income ? " row__amount--income" : ""}`}>
-        {income ? "+" : ""}
-        {formatMoney(expense.amount, currency)}
+      {/* Signed and coloured, per the redesign: income reads +green, spending
+          -red, so a mixed list is scannable without reading the category. */}
+      <span className="row__trail">
+        <span className={`row__amount num${income ? " row__amount--income" : " row__amount--expense"}`}>
+          {income ? "+" : "−"}
+          {formatMoney(expense.amount, currency)}
+        </span>
+        {trailing && <span className="row__when">{trailing}</span>}
       </span>
     </button>
   );

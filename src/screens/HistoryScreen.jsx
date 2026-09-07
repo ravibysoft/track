@@ -234,7 +234,7 @@ export default function HistoryScreen({
             </div>
 
             {dailyGroups.length === 0 ? (
-              <div className="card">
+              <div className="card card--flat">
                 <EmptyState
                   icon="wallet"
                   title="No data available"
@@ -265,7 +265,7 @@ export default function HistoryScreen({
                       )}
                     </span>
                   </div>
-                  <div className="card">
+                  <div className="card card--flat">
                     <ul className="list">
                       {group.items.map((expense, i) => (
                         <li
@@ -307,7 +307,7 @@ export default function HistoryScreen({
         )}
 
         {tab === "monthly" && (
-          <div className="card setting-list">
+          <div className="card card--flat setting-list">
             {months.map((m) => (
               <button
                 key={m.key}
@@ -326,7 +326,10 @@ export default function HistoryScreen({
                   <span className="month-row__expense num">
                     {formatMoney(m.expense, currency)}
                   </span>
-                  <span className="month-row__net num">
+                  {/* The minus on a net total is real information, unlike the
+                      decorative +/- that used to sit on every amount, so it
+                      stays — and a deficit is coloured to read at a glance. */}
+                  <span className={`month-row__net num${m.net < 0 ? " is-negative" : ""}`}>
                     {formatMoney(m.net, currency)}
                   </span>
                 </span>

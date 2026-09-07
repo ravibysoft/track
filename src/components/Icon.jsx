@@ -1,85 +1,124 @@
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Banknote,
+  Briefcase,
+  Bus,
+  Calendar,
+  CalendarDays,
+  ChartColumn,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clapperboard,
+  Contrast,
+  Delete,
+  Download,
+  Equal,
+  Gift,
+  HeartPulse,
+  House,
+  Laptop,
+  List,
+  Moon,
+  Package,
+  Pencil,
+  Percent,
+  Plus,
+  ReceiptText,
+  RotateCcw,
+  Search,
+  Share2,
+  ShoppingBag,
+  ShoppingCart,
+  SlidersHorizontal,
+  Sun,
+  Target,
+  TrendingUp,
+  Trash2,
+  TriangleAlert,
+  Upload,
+  Utensils,
+  Wallet,
+  X,
+} from "lucide-react";
+
 /**
- * Every icon in the app, as one 24×24 stroked set so weights stay consistent.
- * Category ids double as icon names, so <Icon name={expense.categoryId} /> works.
+ * Every icon in the app, mapped onto Lucide.
+ *
+ * These replaced a hand-drawn set that read as emoji rather than iconography —
+ * the paths were mine, and their weights and shapes never quite agreed with one
+ * another. Lucide is one professionally drawn family on a shared 24px grid, so
+ * the whole app is consistent for the first time.
+ *
+ * Category ids double as icon names, so <Icon name={entry.categoryId} /> works.
  */
-const PATHS = {
-  /* Categories */
-  food: "M3 11h18v1a7 7 0 0 1-7 7h-4a7 7 0 0 1-7-7zM8 7V4M12 7V3M16 7V4",
-  groceries:
-    "M2 4h2.6l2.6 11h10.2l2.6-8H6.4M9 20h.01M17 20h.01",
-  travel:
-    "M5 4h14a1 1 0 0 1 1 1v11H4V5a1 1 0 0 1 1-1zM4 11h16M8 20h.01M16 20h.01M4 16v2M20 16v2",
-  bills: "M6 2h12v20l-3-2-3 2-3-2-3 2zM9.5 7h5M9.5 11h5M9.5 15h3",
-  shopping: "M5.5 8h13l1 13H4.5zM9 8V6a3 3 0 0 1 6 0v2",
-  health:
-    "M20.8 5.6a5.4 5.4 0 0 0-7.7 0L12 6.7l-1.1-1.1a5.4 5.4 0 1 0-7.7 7.7L12 21.2l8.8-8.9a5.4 5.4 0 0 0 0-7.7z",
-  entertainment: "M3 5h18v14H3zM8 5v14M16 5v14M3 9.5h5M3 14.5h5M16 9.5h5M16 14.5h5",
-  other: "M12 3.5l1.8 5.7 5.7 1.8-5.7 1.8-1.8 5.7-1.8-5.7-5.7-1.8 5.7-1.8zM19 3.5v3M20.5 5h-3M5 17.5v3M6.5 19h-3",
+const ICONS = {
+  /* Expense categories */
+  food: Utensils,
+  groceries: ShoppingCart,
+  travel: Bus,
+  bills: ReceiptText,
+  shopping: ShoppingBag,
+  health: HeartPulse,
+  entertainment: Clapperboard,
+  other: Package,
 
   /* Income categories */
-  salary: "M2.5 7h19a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-19a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6zM5.5 10h.01M18.5 14h.01",
-  business:
-    "M3.5 7.5h17a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-17a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1zM9 7.5V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2.5M2.5 12.5h19",
-  freelance:
-    "M4 5.5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zM1.5 19.5h21",
-  gift: "M3.5 12h17v8a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1zM2.5 8h19v4h-19zM12 8v13M12 8S10.5 4 8 4a2 2 0 0 0 0 4zM12 8s1.5-4 4-4a2 2 0 0 1 0 4z",
-  interest: "M4 19.5 10 13l4 4 6.5-8M15 8.5h5.5V14",
-  refund: "M3 8h11a6 6 0 0 1 0 12H8M3 8l4-4M3 8l4 4",
+  salary: Banknote,
+  business: Briefcase,
+  freelance: Laptop,
+  gift: Gift,
+  interest: TrendingUp,
+  refund: RotateCcw,
+  "other-income": Percent,
 
   /* Navigation */
-  home: "M3 9.6 12 3l9 6.6V20a1 1 0 0 1-1 1h-5v-6.5H9V21H4a1 1 0 0 1-1-1z",
-  history: "M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01",
-  stats: "M18 20V9M12 20V4M6 20v-7",
-  settings:
-    "M4 21v-6M4 11V3M12 21v-9M12 8V3M20 21v-4M20 13V3M1.5 15h5M9.5 8h5M17.5 17h5",
+  home: House,
+  history: List,
+  stats: ChartColumn,
+  settings: SlidersHorizontal,
+
+  /* Money direction — the diagonal arrows from the design */
+  "arrow-in": ArrowDownLeft,
+  "arrow-out": ArrowUpRight,
 
   /* Actions */
-  plus: "M12 5v14M5 12h14",
-  close: "M18 6 6 18M6 6l12 12",
-  trash: "M3.5 6h17M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M18.5 6l-1 14a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1L5.5 6",
-  edit: "M12 20h9M16.6 3.6a2.1 2.1 0 0 1 3 3L7.5 18.7 3.5 20l1.3-4z",
-  search: "M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14zM20.5 20.5 16 16",
-  check: "M20 6.5 9 17.5l-5-5",
-  left: "M15 18.5 8.5 12 15 5.5",
-  right: "M9 5.5 15.5 12 9 18.5",
-  down: "M6 9.5 12 15.5l6-6",
-  download: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7.5 10.5 12 15l4.5-4.5M12 15V3",
-  upload: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M16.5 7.5 12 3 7.5 7.5M12 3v12",
-  share: "M18 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM6 14.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM18 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zM8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1",
-  calendar: "M4 5h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM16 3v4M8 3v4M3 10h18",
-  wallet:
-    "M3 7.5A2.5 2.5 0 0 1 5.5 5H18a1 1 0 0 1 1 1v1.5M3 7.5v10A2.5 2.5 0 0 0 5.5 20H19a1 1 0 0 0 1-1v-3M3 7.5h16a1 1 0 0 1 1 1V16m0 0h-3.5a2.25 2.25 0 0 1 0-4.5H20",
-  alert: "M12 8.5v4.5M12 16.5h.01M12 3 2.5 20h19z",
-  sun: "M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1.5v2M12 20.5v2M3.9 3.9l1.5 1.5M18.6 18.6l1.5 1.5M1.5 12h2M20.5 12h2M3.9 20.1l1.5-1.5M18.6 5.4l1.5-1.5",
-  moon: "M20.5 14.3A8.5 8.5 0 0 1 9.7 3.5a8.5 8.5 0 1 0 10.8 10.8z",
-  contrast: "M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zM12 3v18",
-  filter: "M3 5h18l-7 8v6l-4 2v-8z",
-  target: "M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zM12 16.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9zM12 13.2a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4z",
-  undo: "M3 8h11a6 6 0 0 1 0 12H8M3 8l4-4M3 8l4 4",
-  backspace: "M10 5h9a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-9L3 12zM17 9.5l-5 5M12 9.5l5 5",
-  minus: "M5 12h14",
-  divide: "M5 12h14M12 6.5h.01M12 17.5h.01",
-  multiply: "M6.5 6.5l11 11M17.5 6.5l-11 11",
-  equals: "M5 9.5h14M5 14.5h14",
-  calendar_grid: "M4 5h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM16 3v4M8 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01",
+  plus: Plus,
+  close: X,
+  trash: Trash2,
+  edit: Pencil,
+  search: Search,
+  check: Check,
+  left: ChevronLeft,
+  right: ChevronRight,
+  down: ChevronDown,
+  download: Download,
+  upload: Upload,
+  share: Share2,
+  calendar: Calendar,
+  calendar_grid: CalendarDays,
+  wallet: Wallet,
+  alert: TriangleAlert,
+  sun: Sun,
+  moon: Moon,
+  contrast: Contrast,
+  target: Target,
+  undo: RotateCcw,
+  backspace: Delete,
+  equals: Equal,
 };
 
 export default function Icon({ name, size, className, style }) {
-  const d = PATHS[name] ?? PATHS.other;
+  const Glyph = ICONS[name] ?? Package;
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+    <Glyph
       className={className}
       style={size ? { width: size, height: size, ...style } : style}
+      strokeWidth={1.9}
       aria-hidden="true"
       focusable="false"
-    >
-      <path d={d} />
-    </svg>
+    />
   );
 }

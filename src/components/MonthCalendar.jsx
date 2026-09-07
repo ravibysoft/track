@@ -13,7 +13,7 @@ export default function MonthCalendar({ monthKey, totals, currency, selectedDay,
   const today = todayKey();
 
   return (
-    <div className="calendar card">
+    <div className="calendar card card--flat">
       <div className="calendar__head">
         {WEEKDAY_LABELS.map((label, i) => (
           <span key={`${label}-${i}`} className="calendar__weekday">
@@ -52,7 +52,7 @@ export default function MonthCalendar({ monthKey, totals, currency, selectedDay,
               )}
               {cell?.income > 0 && (
                 <span className="calendar__amount calendar__amount--income num">
-                  +{formatCompact(cell.income, currency)}
+                  {formatCompact(cell.income, currency)}
                 </span>
               )}
             </button>

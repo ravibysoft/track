@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import CategoryIcon from "../components/CategoryIcon.jsx";
 import Icon from "../components/Icon.jsx";
 import { PAYMENT_MODES, categoriesFor, defaultCategoryFor } from "../lib/categories.js";
-import { shortDayLabel, todayKey, toKey } from "../lib/dates.js";
+import { dateWithWeekday, todayKey, toKey } from "../lib/dates.js";
 import { formatMoney, parseAmount } from "../lib/money.js";
 
 function yesterdayKey() {
@@ -18,13 +18,15 @@ function yesterdayKey() {
  *
  * `expense` null means "add"; otherwise the fields are prefilled and Delete appears.
  */
-export default function ExpenseFormPage({ expense, currency, onSave, onDelete, onClose }) {
+export default function ExpenseFormPage({ expense, initialType, currency, onSave, onDelete, onClose }) {
   const editing = Boolean(expense);
 
-  const [type, setType] = useState(expense?.type ?? "expense");
+  /* Home has separate Add expense / Add income buttons, so the page can open
+     straight onto the right type. */
+  const [type, setType] = useState(expense?.type ?? initialType ?? "expense");
   const [amountText, setAmountText] = useState(expense ? String(expense.amount) : "");
   const [categoryId, setCategoryId] = useState(
-    expense?.categoryId ?? defaultCategoryFor("expense"),
+    expense?.categoryId ?? defaultCategoryFor(initialType ?? "expense"),
   );
   const [date, setDate] = useState(expense?.date ?? todayKey());
   const [note, setNote] = useState(expense?.note ?? "");
@@ -127,9 +129,35 @@ export default function ExpenseFormPage({ expense, currency, onSave, onDelete, o
         )}
       </header>
 
-      <div className="page__body">
+      <div className="page__body page__body--form">
+        {/* Amount */}
+        <div className="form-hero">
+          <div className={`form-row form-row--amount${income ? " is-income" : ""}`}>
+            <span className="form-row__label">Amount</span>
+            {/* No +/− here: the Expense/Income toggle directly above already says
+                which this is, and the field turns green for income. */}
+            <span className="form-row__symbol">{currency}</span>
+            <input
+              ref={amountRef}
+              type="text"
+              inputMode="decimal"
+              enterKeyHint="done"
+              placeholder="0"
+              value={amountText}
+              maxLength={12}
+              className="num"
+              onChange={(e) => setAmountText(e.target.value.replace(/[^0-9.]/g, ""))}
+              onKeyDown={(e) => e.key === "Enter" && save()}
+              aria-label="Amount"
+            />
+          </div>
+          {valid && value >= 1000 && (
+            <p className="amount-input__echo num">{formatMoney(value, currency)}</p>
+          )}
+        </div>
+
         {/* Expense / Income */}
-        <div className="seg seg--type" style={{ "--seg-index": income ? 1 : 0, "--seg-count": 2 }}>
+        <div className="seg seg--type form-type" style={{ "--seg-index": income ? 1 : 0, "--seg-count": 2 }}>
           <button
             type="button"
             className={`seg__btn${!income ? " is-active" : ""}`}
@@ -148,38 +176,23 @@ export default function ExpenseFormPage({ expense, currency, onSave, onDelete, o
           </button>
         </div>
 
-        {/* Amount */}
-        <div className={`form-row form-row--amount${income ? " is-income" : ""}`}>
-          <span className="form-row__label">Amount</span>
-          <span className="form-row__symbol">
-            {income ? "+" : "−"}
-            {currency}
-          </span>
-          <input
-            ref={amountRef}
-            type="text"
-            inputMode="decimal"
-            enterKeyHint="done"
-            placeholder="0"
-            value={amountText}
-            maxLength={12}
-            className="num"
-            onChange={(e) => setAmountText(e.target.value.replace(/[^0-9.]/g, ""))}
-            onKeyDown={(e) => e.key === "Enter" && save()}
-            aria-label="Amount"
-          />
-        </div>
-
         {/* Date */}
+        {/* The <input type="date"> is transparent and covers the whole row, so
+            without these the row looked like plain text and nobody could tell a
+            picker was there at all. */}
         <label className="form-row date-row">
           <span className="form-row__label">Date</span>
-          <span className="form-row__value">{shortDayLabel(date)}</span>
+          <span className="form-row__value">{dateWithWeekday(date)}</span>
+          <span className="date-row__affordance">
+            <Icon name="calendar" size={17} />
+            <Icon name="down" size={15} />
+          </span>
           <input
             type="date"
             value={date}
             max={today}
             onChange={(e) => e.target.value && setDate(e.target.value)}
-            aria-label="Pick a date"
+            aria-label="Pick any date"
           />
         </label>
 
@@ -198,7 +211,7 @@ export default function ExpenseFormPage({ expense, currency, onSave, onDelete, o
         </div>
 
         {/* Category */}
-        <div className="field">
+        <div className="field field--category">
           <span className="field__label">Category</span>
           <div className="cat-grid">
             {categoriesFor(type).map((c) => (
@@ -255,9 +268,6 @@ export default function ExpenseFormPage({ expense, currency, onSave, onDelete, o
           </div>
         </div>
 
-        {valid && value >= 1000 && (
-          <p className="amount-input__echo num">{formatMoney(value, currency)}</p>
-        )}
       </div>
 
       <div className="page__foot">

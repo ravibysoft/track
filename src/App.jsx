@@ -1,10 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import Icon from "./components/Icon.jsx";
 import Snackbar from "./components/Snackbar.jsx";
 import TabBar from "./components/TabBar.jsx";
 import useInstallPrompt from "./hooks/useInstallPrompt.js";
 import { isNative } from "./lib/storage.js";
+import BackupScreen from "./screens/BackupScreen.jsx";
 import HistoryScreen from "./screens/HistoryScreen.jsx";
+import HomeScreen from "./screens/HomeScreen.jsx";
 import ExpenseFormPage from "./screens/ExpenseFormPage.jsx";
 import SettingsScreen from "./screens/SettingsScreen.jsx";
 import { useExpenses } from "./state/useExpenses.js";
@@ -14,13 +15,13 @@ import { useExpenses } from "./state/useExpenses.js";
 const StatsScreen = lazy(() => import("./screens/StatsScreen.jsx"));
 
 /** Left-to-right order of the tab bar, used to pick the slide direction. */
-const TAB_ORDER = ["trans", "stats", "settings"];
+const TAB_ORDER = ["home", "trans", "stats", "backup", "settings"];
 
 export default function App() {
   const { loaded, currency, add, update, remove, restore, settings } = useExpenses();
   const install = useInstallPrompt();
 
-  const [tab, setTab] = useState("trans");
+  const [tab, setTab] = useState("home");
   const [form, setForm] = useState(null); // null | { expense: Expense | null }
   const [budgetSheet, setBudgetSheet] = useState(false);
   const [toast, setToast] = useState(null);
@@ -46,7 +47,10 @@ export default function App() {
      calls back, so without this a quick re-open would be shut by the *previous*
      sheet's pending close — and would reuse its stale field values. */
   const formSeq = useRef(0);
-  const openAdd = useCallback(() => setForm({ id: ++formSeq.current, expense: null }), []);
+  const openAdd = useCallback(
+    (type = "expense") => setForm({ id: ++formSeq.current, expense: null, type }),
+    [],
+  );
   const openEdit = useCallback(
     (expense) => setForm({ id: ++formSeq.current, expense }),
     [],
@@ -102,10 +106,10 @@ export default function App() {
         setBudgetSheet(false);
         return true;
       }
-      if (tab !== "trans") {
+      if (tab !== "home") {
         // changeTab, not setTab — otherwise going Back keeps the last forward
         // direction and the screen slides in from the wrong side.
-        changeTab("trans");
+        changeTab("home");
         return true;
       }
       return false;
@@ -158,9 +162,19 @@ export default function App() {
     <div className="app">
       {/* Keyed on the tab so switching remounts the host and replays its slide-in. */}
       <div className="screen-host" key={tab} data-direction={direction}>
+        {tab === "home" && (
+          <HomeScreen
+            install={install}
+            onAdd={() => openAdd("expense")}
+            onAddIncome={() => openAdd("income")}
+            onEdit={openEdit}
+            onDelete={deleteWithUndo}
+            onSeeAll={() => changeTab("trans")}
+            onOpenSettings={() => changeTab("settings")}
+          />
+        )}
         {tab === "trans" && (
           <HistoryScreen
-            install={install}
             onEdit={openEdit}
             onDelete={deleteWithUndo}
             onOpenSettings={() => {
@@ -169,6 +183,7 @@ export default function App() {
             }}
           />
         )}
+        {tab === "backup" && <BackupScreen onToast={notify} />}
         {tab === "stats" && (
           <Suspense fallback={<div className="screen"><div className="boot" /></div>}>
             <StatsScreen />
@@ -184,18 +199,13 @@ export default function App() {
         )}
       </div>
 
-      {tab !== "settings" && (
-        <button type="button" className="fab" onClick={openAdd} aria-label="Add expense">
-          <Icon name="plus" />
-        </button>
-      )}
-
-      <TabBar active={tab} onChange={changeTab} />
+      <TabBar active={tab} onChange={changeTab} onAdd={() => openAdd("expense")} />
 
       {form && (
         <ExpenseFormPage
           key={form.id}
           expense={form.expense}
+          initialType={form.type}
           currency={currency}
           onSave={handleSave}
           onDelete={deleteWithUndo}

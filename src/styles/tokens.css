@@ -16,14 +16,21 @@
   --border: rgba(13, 14, 18, 0.09);
   --border-strong: rgba(13, 14, 18, 0.16);
 
-  /* Brand */
-  --accent: #5b5bd6;
-  --accent-press: #4a4ac4;
-  --accent-soft: rgba(91, 91, 214, 0.12);
+  /* Brand — deep green, per the redesign */
+  --accent: #14513c;
+  --accent-press: #0f3f2e;
+  --accent-soft: rgba(20, 81, 60, 0.1);
   --on-accent: #ffffff;
 
+  /* The dark hero card and the text that sits on it */
+  --hero-bg: #123829;
+  --hero-text: #ffffff;
+  --hero-dim: rgba(255, 255, 255, 0.62);
+  --hero-line: rgba(255, 255, 255, 0.16);
+  --hero-income: #4ade80;
+
   /* Semantic */
-  --ok: #12a150;
+  --ok: #15803d;
   --warn: #d97706;
   --danger: #dc2626;
   --danger-soft: rgba(220, 38, 38, 0.1);
@@ -32,7 +39,7 @@
   --shadow-1: 0 1px 2px rgba(13, 14, 18, 0.04);
   --shadow-2: 0 2px 8px rgba(13, 14, 18, 0.06);
   --shadow-3: 0 16px 48px rgba(13, 14, 18, 0.14), 0 2px 8px rgba(13, 14, 18, 0.06);
-  --shadow-fab: 0 6px 20px rgba(91, 91, 214, 0.32);
+  --shadow-fab: 0 6px 20px rgba(20, 81, 60, 0.34);
 
   /* Category accents (tuned to read on both themes) */
   --c-food: #f2635f;
@@ -89,10 +96,16 @@
     --border: rgba(255, 255, 255, 0.08);
     --border-strong: rgba(255, 255, 255, 0.16);
 
-    --accent: #7b7bf0;
-    --accent-press: #8e8ef5;
-    --accent-soft: rgba(123, 123, 240, 0.16);
-    --on-accent: #ffffff;
+    --accent: #34a97e;
+    --accent-press: #45bd90;
+    --accent-soft: rgba(52, 169, 126, 0.16);
+    --on-accent: #04231a;
+
+    --hero-bg: #102c21;
+    --hero-text: #ffffff;
+    --hero-dim: rgba(255, 255, 255, 0.6);
+    --hero-line: rgba(255, 255, 255, 0.14);
+    --hero-income: #4ade80;
 
     --ok: #34d399;
     --warn: #fbbf24;
@@ -130,10 +143,16 @@
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.16);
 
-  --accent: #7b7bf0;
-  --accent-press: #8e8ef5;
-  --accent-soft: rgba(123, 123, 240, 0.16);
-  --on-accent: #ffffff;
+  --accent: #34a97e;
+  --accent-press: #45bd90;
+  --accent-soft: rgba(52, 169, 126, 0.16);
+  --on-accent: #04231a;
+
+  --hero-bg: #102c21;
+  --hero-text: #ffffff;
+  --hero-dim: rgba(255, 255, 255, 0.6);
+  --hero-line: rgba(255, 255, 255, 0.14);
+  --hero-income: #4ade80;
 
   --ok: #34d399;
   --warn: #fbbf24;

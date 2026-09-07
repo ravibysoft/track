@@ -113,6 +113,10 @@ textarea {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /* Explicitly hidden: setting only overflow-y makes overflow-x compute to
+     `auto`, and the chip row's negative margins then made the whole list
+     draggable sideways. Only the chip row itself should scroll horizontally. */
+  overflow-x: hidden;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -143,6 +147,7 @@ textarea {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -365,6 +370,10 @@ textarea {
   overflow-x: auto;
   scrollbar-width: none;
   scroll-snap-type: x proximity;
+  /* Without this the snap position of the first chip sits at the container's
+     16px padding while the scrollport starts at 0, so the row opened snapped to
+     the SECOND chip and "All" was cut off the left edge. */
+  scroll-padding-inline: var(--sp-4);
   padding: var(--sp-1) var(--sp-4) var(--sp-2);
   margin: 0 calc(var(--sp-4) * -1);
 }

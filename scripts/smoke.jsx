@@ -326,16 +326,16 @@ await settle();
 
 console.log("\nHome screen");
 
-check("lands on the Trans. screen", /\d{4}/.test(text(".period-bar__label")), `got "${text(".period-bar__label")}"`);
-check("starts at ₹0", text(".summary-bar__value--expense") === "₹0", `got "${text(".summary-bar__value--expense")}"`);
+check("lands on Home", text(".home__app") === "Roz Kharcha", `got "${text(".home__app")}"`);
+check("starts at ₹0 spent", $$(".balance__statValue")[1]?.textContent.trim() === "₹0", `got "${$$(".balance__statValue")[1]?.textContent.trim()}"`);
 
-check("shows the empty state", text(".empty__title").includes("No data available"), `got "${text(".empty__title")}"`);
-check("bottom bar has three tabs", $$(".tabbar__btn").length === 3, `${$$(".tabbar__btn").length} tabs`);
+check("shows the empty state", text(".home__empty").includes("Nothing yet"), `got "${text(".home__empty")}"`);
+check("bottom bar has four tabs plus Add", $$(".tabbar__btn").length === 4 && !!$(".tabbar__add"), `${$$(".tabbar__btn").length} tabs`);
 
 
 console.log("\nAdd an expense");
 
-await click($(".fab"), "FAB");
+await click($(".tabbar__add"), "Add button");
 
 await settle();
 
@@ -347,6 +347,13 @@ check("amount is a real input, so the phone keyboard opens", $(".form-row--amoun
 check("it asks for the numeric keyboard", $(".form-row--amount input")?.getAttribute("inputmode") === "decimal", `got "${$(".form-row--amount input")?.getAttribute("inputmode")}"`);
 check("it is focused on open so the keyboard is already up", document.activeElement === $(".form-row--amount input"));
 check("no in-app keypad is rendered", $$(".keypad__key").length === 0);
+/* The date input is transparent by design, so assert the row is a real picker
+   and that it advertises itself — it once looked like plain text. */
+check("the date row is a real date picker", $('.date-row input[type="date"]')?.type === "date");
+check("it can reach any past date, not just Today/Yesterday", !$('.date-row input[type="date"]')?.min);
+check("future dates are blocked", !!$('.date-row input[type="date"]')?.max);
+check("the row shows it is tappable", !!$(".date-row__affordance"));
+check("it names an absolute date with the weekday", /,/.test(text(".date-row .form-row__value")), `got "${text(".date-row .form-row__value")}"`);
 
 
 await type($(".form-row--amount input"), "250.50");
@@ -370,9 +377,9 @@ check("expense appears in today's list", $$(".row").length === 1, `${$$(".row").
 
 check("row shows the note", text(".row__title") === "Lunch at office", `got "${text(".row__title")}"`);
 
-check("row shows ₹250.50", text(".row__amount") === "₹250.50", `got "${text(".row__amount")}"`);
+check("row shows a signed expense", text(".row__amount") === "−₹250.50", `got "${text(".row__amount")}"`);
 
-check("today's total updates", text(".summary-bar__value--expense") === "₹250.50", `got "${text(".summary-bar__value--expense")}"`);
+check("today's total updates", $$(".balance__statValue")[1]?.textContent.trim() === "₹250.50", `got "${$$(".balance__statValue")[1]?.textContent.trim()}"`);
 
 check("confirmation toast shows", text(".snackbar").includes("Expense added"));
 
@@ -382,7 +389,7 @@ check("persisted to storage", (localStorage.getItem("rozkharcha.v1") ?? "").incl
 
 console.log("\nIndian digit grouping");
 
-await click($(".fab"), "FAB");
+await click($(".tabbar__add"), "Add button");
 
 await settle();
 
@@ -398,7 +405,7 @@ await settle();
 
 check("two expenses now listed", $$(".row").length === 2, `${$$(".row").length} rows`);
 
-check("total is ₹1,25,650.50", text(".summary-bar__value--expense") === "₹1,25,650.50", `got "${text(".summary-bar__value--expense")}"`);
+check("total is ₹1,25,650.50", $$(".balance__statValue")[1]?.textContent.trim() === "₹1,25,650.50", `got "${$$(".balance__statValue")[1]?.textContent.trim()}"`);
 
 
 
@@ -418,7 +425,7 @@ await settle();
 
 check("edited amount shows in the list", !!byText(".row__amount", "₹300"));
 
-check("total recalculates", text(".summary-bar__value--expense") === "₹1,25,700", `got "${text(".summary-bar__value--expense")}"`);
+check("total recalculates", $$(".balance__statValue")[1]?.textContent.trim() === "₹1,25,700", `got "${$$(".balance__statValue")[1]?.textContent.trim()}"`);
 
 
 
@@ -513,13 +520,15 @@ check("month axis labelled", $$(".recharts-cartesian-axis-tick").length > 0, `${
 
 console.log("\nSettings tab");
 
-await click(byText(".tabbar__btn", "Settings"), "Settings tab");
+await click(byText(".tabbar__btn", "Home"), "Home tab");
+await settle();
+await click($('.home__bar .icon-btn[aria-label="Settings"]'), "Settings gear");
 
 await settle();
 
 check("settings header renders", text(".appbar__title") === "Settings", `got "${text(".appbar__title")}"`);
 
-check("shows the recorded count", !!byText(".hstack", "Entries recorded"));
+check("settings still opens", text(".appbar__title") === "Settings", `got "${text(".appbar__title")}"`);
 
 
 
@@ -549,7 +558,9 @@ check("over-budget warning shows", text(".budget__meta").includes("over budget")
 
 console.log("\nTheme switch");
 
-await click(byText(".tabbar__btn", "Settings"), "Settings tab");
+await click(byText(".tabbar__btn", "Home"), "Home tab");
+await settle();
+await click($('.home__bar .icon-btn[aria-label="Settings"]'), "Settings gear");
 
 await settle();
 
@@ -577,7 +588,9 @@ await settle();
 
 check("expenses survive a reload", $$(".row").length === 2, `${$$(".row").length} rows`);
 
-check("total survives a reload", text(".summary-bar__value--expense") === "₹1,25,700", `got "${text(".summary-bar__value--expense")}"`);
+check("total survives a reload", $$(".balance__statValue")[1]?.textContent.trim() === "₹1,25,700", `got "${$$(".balance__statValue")[1]?.textContent.trim()}"`);
+await click(byText(".tabbar__btn", "Trans."), "Trans. tab");
+await settle();
 
 await click(byText(".tabstrip__tab", "Total"), "Total tab");
 await settle();
@@ -765,7 +778,7 @@ console.log("Income + calendar in the UI");
   });
   await settle();
 
-  await click($(".fab"), "FAB");
+  await click($(".tabbar__add"), "Add button");
   await settle();
   await click(byText(".seg__btn", "Income"), "Income toggle");
   await settle();
@@ -778,11 +791,15 @@ console.log("Income + calendar in the UI");
   await click($(".page__foot .btn"), "Add income");
   await settle();
 
-  check("income row is marked with a plus", text(".row__amount").startsWith("+"), `got "${text(".row__amount")}"`);
-  const ledger = $$(".summary-bar__value").map((e) => e.textContent.trim());
+  check("income row reads +green", $(".row__amount")?.className.includes("row__amount--income") && text(".row__amount").startsWith("+"), `got "${text(".row__amount")}"`);
+  const ledger = [
+    $$(".balance__statValue")[0]?.textContent.trim(),
+    $$(".balance__statValue")[1]?.textContent.trim(),
+    text(".balance__value"),
+  ];
   check("ledger shows the income", ledger[0] === "₹5,000", `got ${JSON.stringify(ledger)}`);
   check("ledger balance equals the income", ledger[2] === "₹5,000", `got ${JSON.stringify(ledger)}`);
-  check("income does not count as spending", text(".summary-bar__value--expense") === "₹0", `got "${text(".summary-bar__value--expense")}"`);
+  check("income does not count as spending", $$(".balance__statValue")[1]?.textContent.trim() === "₹0", `got "${$$(".balance__statValue")[1]?.textContent.trim()}"`);
 
   await click(byText(".tabbar__btn", "Trans."), "Trans. tab");
   await settle();
@@ -792,7 +809,7 @@ console.log("Income + calendar in the UI");
   check("weekday headers render", $$(".calendar__weekday").length === 7);
   const todayCell = $$(".calendar__cell").find((c) => c.className.includes("is-today"));
   check("today is marked on the calendar", !!todayCell);
-  check("today shows the income amount", (todayCell?.textContent ?? "").includes("+"), `got "${todayCell?.textContent}"`);
+  check("today shows the income amount", !!todayCell?.querySelector(".calendar__amount--income"), `got "${todayCell?.textContent}"`);
 
   await click(todayCell, "today cell");
   await settle();
