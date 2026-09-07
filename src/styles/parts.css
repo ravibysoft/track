@@ -880,7 +880,8 @@
   width: 100%;
   padding: var(--sp-3) var(--sp-4);
   text-align: left;
-  flex-wrap: wrap;
+  /* No wrapping: three money columns on one line could not hold a negative
+     five-figure total, and the net broke onto a second line mid-number. */
 }
 
 /* A border, not a separator element: a <div> inside this flex row counted as a
@@ -895,18 +896,42 @@
 
 .month-row__name {
   flex: 1;
+  min-width: 0;
   font-size: 15px;
   font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* Expense on top with the net beneath it, the way the reference stacks them —
+   two columns instead of three buys the room those figures need. */
 .month-row__figures {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--sp-3);
-  flex: 2;
+  display: flex;
+  flex: none;
+  width: 104px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
   text-align: right;
   font-size: 13px;
   font-weight: 600;
+}
+
+.month-row__income,
+.month-row__expense,
+.month-row__net {
+  white-space: nowrap;
+}
+
+/* Fixed widths so both money columns line up down the list — otherwise each row
+   places them wherever its own numbers happen to end. */
+.month-row__income {
+  flex: none;
+  width: 88px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
 }
 
 .month-row__income {
@@ -919,6 +944,8 @@
 
 .month-row__net {
   color: var(--text-dim);
+  font-size: 11.5px;
+  font-weight: 550;
 }
 
 .hint {

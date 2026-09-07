@@ -103,20 +103,24 @@ export default function HistoryScreen({ install, onEdit, onDelete, onOpenSetting
         >
           <Icon name="right" />
         </button>
-        <button
-          type="button"
-          className={`icon-btn${searchOpen ? " is-active" : ""}`}
-          onClick={() => {
-            // Closing clears the query, so results are never filtered by a box
-            // you can no longer see.
-            if (searchOpen) setQuery("");
-            setSearchOpen((open) => !open);
-          }}
-          aria-label={searchOpen ? "Close search" : "Search"}
-          aria-pressed={searchOpen}
-        >
-          <Icon name={searchOpen ? "close" : "search"} />
-        </button>
+        {/* Only Daily has a list to filter, so the toggle appears only there —
+            otherwise it opened an X with no box behind it. */}
+        {tab === "daily" && (
+          <button
+            type="button"
+            className={`icon-btn${searchOpen ? " is-active" : ""}`}
+            onClick={() => {
+              // Closing clears the query, so results are never filtered by a box
+              // you can no longer see.
+              if (searchOpen) setQuery("");
+              setSearchOpen((open) => !open);
+            }}
+            aria-label={searchOpen ? "Close search" : "Search"}
+            aria-pressed={searchOpen}
+          >
+            <Icon name={searchOpen ? "close" : "search"} />
+          </button>
+        )}
       </header>
 
       {/* Daily / Calendar / Monthly / Total */}
@@ -132,6 +136,8 @@ export default function HistoryScreen({ install, onEdit, onDelete, onOpenSetting
             onClick={() => {
               setTab(t.id);
               setSelectedDay(null);
+              setSearchOpen(false);
+              setQuery("");
             }}
             aria-pressed={tab === t.id}
           >
@@ -279,8 +285,8 @@ export default function HistoryScreen({ install, onEdit, onDelete, onOpenSetting
               }}
             >
               <span className="month-row__name">{m.label}</span>
+              <span className="month-row__income num">{formatMoney(m.income, currency)}</span>
               <span className="month-row__figures">
-                <span className="month-row__income num">{formatMoney(m.income, currency)}</span>
                 <span className="month-row__expense num">{formatMoney(m.expense, currency)}</span>
                 <span className="month-row__net num">{formatMoney(m.net, currency)}</span>
               </span>
