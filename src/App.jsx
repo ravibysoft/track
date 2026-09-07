@@ -84,6 +84,12 @@ export default function App() {
     [form, add, update, notify],
   );
 
+  /* A new tab always opens at the top. Without this the body keeps the previous
+     screen's scroll offset, so a shorter page appears already scrolled down. */
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab]);
+
   /* Android hardware Back: close what's on top, then fall back to Home, then exit.
      The handler lives in a ref so the native listener is registered only once. */
   const backRef = useRef(() => false);
@@ -98,12 +104,14 @@ export default function App() {
         return true;
       }
       if (tab !== "home") {
-        setTab("home");
+        // changeTab, not setTab — otherwise going Back keeps the last forward
+        // direction and the screen slides in from the wrong side.
+        changeTab("home");
         return true;
       }
       return false;
     };
-  }, [form, budgetSheet, tab, closeForm]);
+  }, [form, budgetSheet, tab, closeForm, changeTab]);
 
   useEffect(() => {
     if (!isNative()) return undefined;

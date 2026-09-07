@@ -1,8 +1,12 @@
 /**
  * Pure document helpers — every function takes state and returns new state or a
  * derived value. No React, no I/O, so the rules stay easy to reason about and test.
+ *
+ * An entry is an expense or an income. Anything saved before income existed has no
+ * `type`, so it is read as an expense — that keeps old backups and old installs
+ * working untouched.
  */
-import { CATEGORIES, DEFAULT_CATEGORY } from "./categories.js";
+import { CATEGORIES, categoryFitsType, defaultCategoryFor } from "./categories.js";
 import { isValidKey, monthKeyOf, todayKey } from "./dates.js";
 import { DEFAULT_CURRENCY, round2, sum } from "./money.js";
 
@@ -38,7 +42,7 @@ export function migrate(raw) {
   if (!raw || typeof raw !== "object") return base;
 
   const expenses = Array.isArray(raw.expenses)
-    ? raw.expenses.map(sanitizeExpense).filter(Boolean)
+    ? raw.expenses.map(sanitizeEntry).filter(Boolean)
     : [];
 
   const s = raw.settings && typeof raw.settings === "object" ? raw.settings : {};
@@ -55,18 +59,28 @@ export function migrate(raw) {
   };
 }
 
-function sanitizeExpense(raw) {
+function sanitizeEntry(raw) {
   if (!raw || typeof raw !== "object") return null;
   const amount = Number(raw.amount);
   if (!Number.isFinite(amount) || amount <= 0) return null;
 
+  // Missing type means the row predates income support, so it is an expense.
+  const type = raw.type === "income" ? "income" : "expense";
   const date = isValidKey(raw.date) ? raw.date : todayKey();
   const now = new Date().toISOString();
 
+  // A category from the wrong set would render with the wrong icon and pollute
+  // the breakdown, so fall back to that type's default instead.
+  const categoryId =
+    VALID_CATEGORY.has(raw.categoryId) && categoryFitsType(raw.categoryId, type)
+      ? raw.categoryId
+      : defaultCategoryFor(type);
+
   return {
     id: typeof raw.id === "string" && raw.id ? raw.id : newId(),
+    type,
     amount: round2(amount),
-    categoryId: VALID_CATEGORY.has(raw.categoryId) ? raw.categoryId : DEFAULT_CATEGORY,
+    categoryId,
     note: typeof raw.note === "string" ? raw.note.slice(0, 200) : "",
     date,
     paymentMode: VALID_MODE.has(raw.paymentMode) ? raw.paymentMode : "cash",
@@ -77,15 +91,15 @@ function sanitizeExpense(raw) {
 
 /* ---------- Mutations ---------- */
 
-export function buildExpense(input) {
+export function buildEntry(input) {
   const now = new Date().toISOString();
-  return sanitizeExpense({ ...input, id: newId(), createdAt: now, updatedAt: now });
+  return sanitizeEntry({ ...input, id: newId(), createdAt: now, updatedAt: now });
 }
 
 export function addExpense(doc, input) {
-  const expense = buildExpense(input);
-  if (!expense) return doc;
-  return { ...doc, expenses: [expense, ...doc.expenses] };
+  const entry = buildEntry(input);
+  if (!entry) return doc;
+  return { ...doc, expenses: [entry, ...doc.expenses] };
 }
 
 export function updateExpense(doc, id, patch) {
@@ -93,7 +107,7 @@ export function updateExpense(doc, id, patch) {
     ...doc,
     expenses: doc.expenses.map((e) =>
       e.id === id
-        ? (sanitizeExpense({ ...e, ...patch, updatedAt: new Date().toISOString() }) ?? e)
+        ? (sanitizeEntry({ ...e, ...patch, updatedAt: new Date().toISOString() }) ?? e)
         : e,
     ),
   };
@@ -103,7 +117,7 @@ export function removeExpense(doc, id) {
   return { ...doc, expenses: doc.expenses.filter((e) => e.id !== id) };
 }
 
-/** Puts a deleted expense back where it was — powers the undo snackbar. */
+/** Puts a deleted entry back where it was — powers the undo snackbar. */
 export function restoreExpense(doc, expense, index) {
   const next = doc.expenses.slice();
   next.splice(Math.min(Math.max(index, 0), next.length), 0, expense);
@@ -112,6 +126,29 @@ export function restoreExpense(doc, expense, index) {
 
 export function setSettings(doc, patch) {
   return { ...doc, settings: { ...doc.settings, ...patch } };
+}
+
+/* ---------- Type helpers ---------- */
+
+export const isIncome = (entry) => entry.type === "income";
+
+export const spending = (list) => list.filter((e) => !isIncome(e));
+export const earnings = (list) => list.filter(isIncome);
+
+/** { expense, income, net } for a set of entries. */
+export function totals(list) {
+  const expense = sum(spending(list));
+  const income = sum(earnings(list));
+  return { expense, income, net: round2(income - expense) };
+}
+
+/** Spending only — what "how much did I spend" means everywhere in the UI. */
+export function spent(list) {
+  return sum(spending(list));
+}
+
+export function earned(list) {
+  return sum(earnings(list));
 }
 
 /* ---------- Selectors ---------- */
@@ -135,11 +172,7 @@ export function betweenDays(expenses, start, end) {
   return expenses.filter((e) => e.date >= start && e.date <= end);
 }
 
-export function total(expenses) {
-  return sum(expenses);
-}
-
-/** [{ day, label-ready key, items, total }] for the grouped history list. */
+/** [{ day, items, expense, income }] for the grouped history list. */
 export function groupByDay(expenses) {
   const map = new Map();
   for (const e of sortExpenses(expenses)) {
@@ -149,15 +182,21 @@ export function groupByDay(expenses) {
   return [...map.entries()].map(([day, items]) => ({
     day,
     items,
-    total: sum(items),
+    expense: spent(items),
+    income: earned(items),
   }));
 }
 
-/** Category totals, biggest first, with each share of the period. */
-export function byCategory(expenses) {
-  const grand = sum(expenses);
+/**
+ * Category totals for one type, biggest first, with each share of the period.
+ * Mixing income into a spending breakdown would make every share meaningless,
+ * so the type is always explicit.
+ */
+export function byCategory(entries, type = "expense") {
+  const list = type === "income" ? earnings(entries) : spending(entries);
+  const grand = sum(list);
   const map = new Map();
-  for (const e of expenses) {
+  for (const e of list) {
     map.set(e.categoryId, round2((map.get(e.categoryId) ?? 0) + e.amount));
   }
   return [...map.entries()]
@@ -165,18 +204,30 @@ export function byCategory(expenses) {
       categoryId,
       amount,
       share: grand > 0 ? amount / grand : 0,
-      count: expenses.filter((e) => e.categoryId === categoryId).length,
+      count: list.filter((e) => e.categoryId === categoryId).length,
     }))
     .sort((a, b) => b.amount - a.amount);
 }
 
-/** Totals per day key, for the month bar chart. Missing days come back as 0. */
-export function dailyTotals(expenses, dayKeys) {
+/** Spending per day key, for the bar chart. Missing days come back as 0. */
+export function dailyTotals(entries, dayKeys) {
   const map = new Map();
-  for (const e of expenses) {
+  for (const e of spending(entries)) {
     map.set(e.date, round2((map.get(e.date) ?? 0) + e.amount));
   }
   return dayKeys.map((day) => ({ day, amount: map.get(day) ?? 0 }));
+}
+
+/** Spending and income per day, for the calendar grid. */
+export function dayTotalsMap(entries) {
+  const map = new Map();
+  for (const e of entries) {
+    const cell = map.get(e.date) ?? { expense: 0, income: 0 };
+    if (isIncome(e)) cell.income = round2(cell.income + e.amount);
+    else cell.expense = round2(cell.expense + e.amount);
+    map.set(e.date, cell);
+  }
+  return map;
 }
 
 /** Case-insensitive match across the note, the amount and the category label. */
@@ -192,3 +243,7 @@ export function search(expenses, query, categoryLabelOf) {
     );
   });
 }
+
+/* `total` used to mean "sum of everything" when everything was an expense.
+   It now resolves to spending, which is what every existing caller meant. */
+export const total = spent;

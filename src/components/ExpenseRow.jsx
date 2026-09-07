@@ -14,6 +14,7 @@ export default function ExpenseRow({ expense, currency, onEdit, onDelete }) {
   const longPressed = useRef(false);
   const origin = useRef({ x: 0, y: 0 });
 
+  const income = expense.type === "income";
   const category = getCategory(expense.categoryId);
   const title = expense.note?.trim() || category.label;
   /* The title already carries the note (or the category), so the meta line shows
@@ -67,7 +68,10 @@ export default function ExpenseRow({ expense, currency, onEdit, onDelete }) {
           ))}
         </span>
       </span>
-      <span className="row__amount num">{formatMoney(expense.amount, currency)}</span>
+      <span className={`row__amount num${income ? " row__amount--income" : ""}`}>
+        {income ? "+" : ""}
+        {formatMoney(expense.amount, currency)}
+      </span>
     </button>
   );
 }

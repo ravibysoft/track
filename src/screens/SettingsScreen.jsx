@@ -25,7 +25,8 @@ export default function SettingsScreen({ install, onToast, budgetSheetOpen, onBu
     const sorted = db.sortExpenses(expenses);
     return {
       count: expenses.length,
-      total: db.total(expenses),
+      spent: db.spent(expenses),
+      earned: db.earned(expenses),
       since: sorted.length ? sorted[sorted.length - 1].date : null,
     };
   }, [expenses]);
@@ -261,13 +262,21 @@ export default function SettingsScreen({ install, onToast, budgetSheetOpen, onBu
       <h2 className="section-title">Your data</h2>
       <div className="card card--pad stack">
         <div className="hstack">
-          <span className="grow setting-row__hint">Expenses recorded</span>
+          <span className="grow setting-row__hint">Entries recorded</span>
           <strong className="num">{summary.count}</strong>
         </div>
         <div className="hstack">
-          <span className="grow setting-row__hint">Total tracked</span>
-          <strong className="num">{formatMoney(summary.total, currency)}</strong>
+          <span className="grow setting-row__hint">Total spent</span>
+          <strong className="num">{formatMoney(summary.spent, currency)}</strong>
         </div>
+        {summary.earned > 0 && (
+          <div className="hstack">
+            <span className="grow setting-row__hint">Total income</span>
+            <strong className="num ledger__value--income">
+              {formatMoney(summary.earned, currency)}
+            </strong>
+          </div>
+        )}
         {summary.since && (
           <div className="hstack">
             <span className="grow setting-row__hint">Tracking since</span>
@@ -306,7 +315,7 @@ export default function SettingsScreen({ install, onToast, budgetSheetOpen, onBu
       {clearStep === 1 && (
         <ConfirmDialog
           title="Clear all data?"
-          message={`This removes all ${summary.count} expenses from this phone. Export a backup first if you might want them back.`}
+          message={`This removes all ${summary.count} entries from this phone. Export a backup first if you might want them back.`}
           confirmLabel="Continue"
           onCancel={() => setClearStep(0)}
           onConfirm={() => setClearStep(2)}
@@ -322,7 +331,7 @@ export default function SettingsScreen({ install, onToast, budgetSheetOpen, onBu
           onConfirm={() => {
             replaceDoc({ settings });
             setClearStep(0);
-            onToast("All expenses deleted");
+            onToast("All entries deleted");
           }}
         />
       )}

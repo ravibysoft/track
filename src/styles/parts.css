@@ -616,3 +616,250 @@
   padding: 0 var(--sp-4);
   font-size: 13.5px;
 }
+
+/* ---------- Income / expense ---------- */
+.row__amount--income,
+.ledger__value--income {
+  color: var(--ok);
+}
+
+.btn--income {
+  background: var(--ok);
+  color: #fff;
+  box-shadow: var(--shadow-1);
+}
+
+.seg__btn--income.is-active {
+  color: var(--ok);
+}
+
+.seg--type {
+  margin-bottom: var(--sp-4);
+}
+
+/* ---------- Income / Expense / Balance strip ---------- */
+.ledger {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: var(--sp-3);
+  padding: var(--sp-4) var(--sp-2);
+}
+
+.ledger__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 0 var(--sp-1);
+}
+
+.ledger__col + .ledger__col {
+  border-left: 1px solid var(--border);
+}
+
+.ledger__label {
+  font-size: 11.5px;
+  font-weight: 620;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.ledger__value {
+  font-size: 15px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.ledger__value--expense {
+  color: var(--danger);
+}
+
+/* ---------- Amount display (keypad head) ---------- */
+.amount-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--sp-3) 0 var(--sp-4);
+}
+
+.amount-display__pending {
+  min-height: 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.amount-display__row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.amount-display__sign {
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.amount-display__symbol {
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.amount-display__value {
+  font-size: 44px;
+  font-weight: 720;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.amount-display--income .amount-display__value,
+.amount-display--income .amount-display__sign {
+  color: var(--ok);
+}
+
+.amount-echo {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-faint);
+  margin-bottom: var(--sp-2);
+}
+
+/* ---------- Keypad ---------- */
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-5);
+}
+
+.keypad__key {
+  display: grid;
+  place-items: center;
+  min-height: 52px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 21px;
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  transition: transform 0.1s var(--ease-out), background 0.15s;
+}
+
+.keypad__key:active {
+  transform: scale(0.94);
+  background: var(--surface-3);
+}
+
+.keypad__key svg {
+  width: 20px;
+  height: 20px;
+}
+
+.keypad__key--op {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+}
+
+.keypad__key--op.is-active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.keypad__key--util {
+  color: var(--text-dim);
+}
+
+/* ---------- Calendar ---------- */
+.calendar {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3) var(--sp-3) var(--sp-4);
+}
+
+.calendar__head,
+.calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.calendar__weekday {
+  text-align: center;
+  padding-bottom: var(--sp-2);
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--text-faint);
+}
+
+.calendar__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  min-height: 46px;
+  padding: 4px 1px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.calendar__cell--empty {
+  pointer-events: none;
+}
+
+.calendar__cell.is-quiet {
+  color: var(--text-faint);
+}
+
+.calendar__cell.is-today {
+  border-color: var(--accent);
+}
+
+.calendar__cell.is-selected {
+  background: var(--accent);
+}
+
+.calendar__cell.is-selected .calendar__day,
+.calendar__cell.is-selected .calendar__amount {
+  color: var(--on-accent);
+}
+
+.calendar__day {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.calendar__amount {
+  font-size: 9.5px;
+  font-weight: 620;
+  line-height: 1.15;
+  color: var(--text-dim);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendar__amount--income {
+  color: var(--ok);
+}
+
+/* ---------- Day header totals ---------- */
+.day-head__totals {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  min-width: 0;
+}

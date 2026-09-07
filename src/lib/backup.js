@@ -31,9 +31,10 @@ function csvCell(value) {
 }
 
 export function buildCsv(expenses) {
-  const header = ["Date", "Category", "Note", "Paid by", "Amount"];
+  const header = ["Date", "Type", "Category", "Note", "Paid by", "Amount"];
   const rows = sortExpenses(expenses).map((e) => [
     e.date,
+    e.type === "income" ? "Income" : "Expense",
     getCategory(e.categoryId).label,
     e.note,
     getPaymentLabel(e.paymentMode),

@@ -3,8 +3,9 @@ import CategoryIcon from "../components/CategoryIcon.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ExpenseRow from "../components/ExpenseRow.jsx";
 import Icon from "../components/Icon.jsx";
+import MonthCalendar from "../components/MonthCalendar.jsx";
 import MonthPicker from "../components/MonthPicker.jsx";
-import { CATEGORIES, getCategory } from "../lib/categories.js";
+import { EXPENSE_CATEGORIES, getCategory } from "../lib/categories.js";
 import * as db from "../lib/db.js";
 import { currentMonthKey, dayLabel } from "../lib/dates.js";
 import { formatMoney } from "../lib/money.js";
@@ -15,22 +16,27 @@ const labelOf = (id) => getCategory(id).label;
 export default function HistoryScreen({ onEdit, onDelete }) {
   const { expenses, currency } = useExpenses();
 
+  const [view, setView] = useState("list"); // "list" | "calendar"
   const [scope, setScope] = useState("month"); // "month" | "all"
   const [month, setMonth] = useState(currentMonthKey);
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
 
-  const { groups, filteredTotal, filteredCount } = useMemo(() => {
-    let list = scope === "month" ? db.inMonth(expenses, month) : expenses;
+  /* The calendar is inherently one month, so it pins the scope to that month. */
+  const calendar = view === "calendar";
+  const monthItems = useMemo(() => db.inMonth(expenses, month), [expenses, month]);
+
+  const { groups, periodTotals } = useMemo(() => {
+    let list = calendar || scope === "month" ? monthItems : expenses;
+    if (calendar && selectedDay) list = list.filter((e) => e.date === selectedDay);
     if (categoryId) list = list.filter((e) => e.categoryId === categoryId);
     list = db.search(list, query, labelOf);
-    return {
-      groups: db.groupByDay(list),
-      filteredTotal: db.total(list),
-      filteredCount: list.length,
-    };
-  }, [expenses, scope, month, categoryId, query]);
+    return { groups: db.groupByDay(list), periodTotals: db.totals(list) };
+  }, [expenses, monthItems, calendar, scope, selectedDay, categoryId, query]);
 
+  const dayTotals = useMemo(() => db.dayTotalsMap(monthItems), [monthItems]);
+  const entryCount = groups.reduce((n, g) => n + g.items.length, 0);
   const hasAny = expenses.length > 0;
 
   return (
@@ -39,33 +45,71 @@ export default function HistoryScreen({ onEdit, onDelete }) {
         <div>
           <h1 className="appbar__title">History</h1>
           <p className="appbar__sub">
-            {filteredCount} {filteredCount === 1 ? "expense" : "expenses"} ·{" "}
-            <span className="num">{formatMoney(filteredTotal, currency)}</span>
+            {entryCount} {entryCount === 1 ? "entry" : "entries"} ·{" "}
+            <span className="num">{formatMoney(periodTotals.expense, currency)}</span> spent
+            {periodTotals.income > 0 && (
+              <>
+                {" · "}
+                <span className="num ledger__value--income">
+                  {formatMoney(periodTotals.income, currency)}
+                </span>{" "}
+                in
+              </>
+            )}
           </p>
         </div>
       </header>
 
-      <div className="seg seg--sm">
+      <div className="seg">
         <button
           type="button"
-          className={`seg__btn${scope === "month" ? " is-active" : ""}`}
-          onClick={() => setScope("month")}
+          className={`seg__btn${!calendar && scope === "month" ? " is-active" : ""}`}
+          onClick={() => {
+            setView("list");
+            setScope("month");
+          }}
         >
-          By month
+          <Icon name="history" size={15} />
+          Month
         </button>
         <button
           type="button"
-          className={`seg__btn${scope === "all" ? " is-active" : ""}`}
-          onClick={() => setScope("all")}
+          className={`seg__btn${calendar ? " is-active" : ""}`}
+          onClick={() => setView("calendar")}
+        >
+          <Icon name="calendar_grid" size={15} />
+          Calendar
+        </button>
+        <button
+          type="button"
+          className={`seg__btn${!calendar && scope === "all" ? " is-active" : ""}`}
+          onClick={() => {
+            setView("list");
+            setScope("all");
+          }}
         >
           All time
         </button>
       </div>
 
-      {scope === "month" && (
-        <div style={{ marginTop: "var(--sp-3)" }}>
-          <MonthPicker value={month} onChange={setMonth} />
-        </div>
+      {(calendar || scope === "month") && (
+        <MonthPicker
+          value={month}
+          onChange={(next) => {
+            setMonth(next);
+            setSelectedDay(null);
+          }}
+        />
+      )}
+
+      {calendar && (
+        <MonthCalendar
+          monthKey={month}
+          totals={dayTotals}
+          currency={currency}
+          selectedDay={selectedDay}
+          onSelectDay={setSelectedDay}
+        />
       )}
 
       <label className="search-bar">
@@ -76,10 +120,15 @@ export default function HistoryScreen({ onEdit, onDelete }) {
           placeholder="Search note, amount or category"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          aria-label="Search expenses"
+          aria-label="Search entries"
         />
         {query && (
-          <button type="button" className="icon-btn" onClick={() => setQuery("")} aria-label="Clear search">
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => setQuery("")}
+            aria-label="Clear search"
+          >
             <Icon name="close" />
           </button>
         )}
@@ -94,7 +143,7 @@ export default function HistoryScreen({ onEdit, onDelete }) {
         >
           All
         </button>
-        {CATEGORIES.map((c) => (
+        {EXPENSE_CATEGORIES.map((c) => (
           <button
             key={c.id}
             type="button"
@@ -109,14 +158,20 @@ export default function HistoryScreen({ onEdit, onDelete }) {
       </div>
 
       {groups.length === 0 ? (
-        <div className="card" style={{ marginTop: "var(--sp-4)" }}>
+        <div className="card">
           <EmptyState
             icon={hasAny ? "search" : "wallet"}
-            title={hasAny ? "Nothing matches" : "No history yet"}
+            title={
+              calendar && selectedDay
+                ? "Nothing on this day"
+                : hasAny
+                  ? "Nothing matches"
+                  : "No history yet"
+            }
             text={
               hasAny
                 ? "Try another month, clear the search, or pick a different category."
-                : "Every expense you add shows up here, grouped day by day."
+                : "Every entry you add shows up here, grouped day by day."
             }
           />
         </div>
@@ -125,7 +180,16 @@ export default function HistoryScreen({ onEdit, onDelete }) {
           <section key={group.day}>
             <div className="day-head">
               <span className="day-head__label">{dayLabel(group.day)}</span>
-              <span className="day-head__total num">{formatMoney(group.total, currency)}</span>
+              <span className="day-head__totals">
+                {group.income > 0 && (
+                  <span className="day-head__total ledger__value--income num">
+                    +{formatMoney(group.income, currency)}
+                  </span>
+                )}
+                {group.expense > 0 && (
+                  <span className="day-head__total num">{formatMoney(group.expense, currency)}</span>
+                )}
+              </span>
             </div>
             <div className="card">
               <ul className="list">
@@ -133,7 +197,7 @@ export default function HistoryScreen({ onEdit, onDelete }) {
                   <li
                     key={expense.id}
                     className="row-item"
-                    style={{ animationDelay: `${Math.min(i, 8) * 32}ms` }}
+                    style={{ animationDelay: `${Math.min(i, 6) * 20}ms` }}
                   >
                     {i > 0 && <div className="list__sep" />}
                     <ExpenseRow

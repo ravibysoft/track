@@ -11,11 +11,14 @@ Ships two ways from one codebase:
 
 ## What it does
 
-- **Add / edit / delete** an expense — amount, category, date, note, and how it was paid
-- **Home** — spent today, this week, this month, and a monthly budget bar
-- **History** — every expense grouped day by day, with search, category filters and
-  per-day subtotals; browse by month or all time
-- **Stats** — donut chart by category, daily bar chart, and a month-over-month trend
+- **Add / edit / delete** expenses **and income** — amount, category, date, note, and how it was paid
+- **Calculator keypad** for the amount: no system keyboard, and it does arithmetic
+  (`250 + 80`) for splitting a bill or totting up a receipt
+- **Home** — spent today, an Income / Expense / Balance strip, and a monthly budget bar
+- **History** — a **month calendar** with each day's total in the cell, or a list grouped
+  day by day, with search, category filters and per-day subtotals
+- **Stats** — **Week / Month / Year** periods, a donut by category, a bar chart per day
+  (or per month for the year view), and a period-over-period trend
 - **Backup** — export `.json` (restorable) or `.csv` (opens in Excel), share, or restore
 - A pure-white interface by default — cards separate by hairline borders and space
   rather than grey fills. Dark and System stay available in **Settings → Appearance**
@@ -40,10 +43,11 @@ npm run smoke   # mounts the real app in jsdom and drives it end to end
 npm run build   # production bundle into dist/
 ```
 
-`npm run smoke` is the important one — 68 checks that add, edit, delete and restore an
+`npm run smoke` is the important one — 101 checks that add, edit, delete and restore an
 expense, switch every tab, set a budget, flip the theme, reload to confirm data persisted,
-and verify the old `track.v1` storage key still migrates. It also covers the money, date
-and CSV edge cases.
+and verify the old `track.v1` storage key still migrates. It also covers the money, date,
+CSV, calculator and count-up cases, plus a cascade guard that a long note cannot widen
+the screen.
 
 ## The PWA
 

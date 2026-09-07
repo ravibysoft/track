@@ -106,39 +106,62 @@ ol {
   flex-direction: column;
   /* `backwards`, not `both`: the from-state is applied before the run, and control
      is released afterwards so no transform lingers to disturb sticky day headers. */
-  animation: screen-in-forward 0.3s var(--ease-out) backwards;
+  animation: screen-in-forward 0.34s var(--ease-out) backwards;
 }
 
 .screen-host[data-direction="-1"] {
   animation-name: screen-in-back;
 }
 
+/* Travels a share of the screen rather than a fixed nudge, and settles from
+   slightly back, so the change reads as one page replacing another. */
 @keyframes screen-in-forward {
   from {
     opacity: 0;
-    transform: translate3d(22px, 0, 0);
+    transform: translate3d(9%, 0, 0) scale(0.985);
   }
 }
 
 @keyframes screen-in-back {
   from {
     opacity: 0;
-    transform: translate3d(-22px, 0, 0);
+    transform: translate3d(-9%, 0, 0) scale(0.985);
   }
 }
 
-/* List rows fan in behind the screen slide. The delay is capped in the JSX so a
-   long month does not turn into a slow cascade. */
+/* Every top-level block on a screen rises in just behind the slide, so you watch
+   the page assemble instead of seeing one solid rectangle arrive. The cap keeps
+   a long screen from turning into a slow queue. */
+.screen > * {
+  animation: block-in 0.38s var(--ease-out) backwards;
+}
+
+.screen > *:nth-child(1) { animation-delay: 40ms; }
+.screen > *:nth-child(2) { animation-delay: 78ms; }
+.screen > *:nth-child(3) { animation-delay: 112ms; }
+.screen > *:nth-child(4) { animation-delay: 142ms; }
+.screen > *:nth-child(5) { animation-delay: 168ms; }
+.screen > *:nth-child(n + 6) { animation-delay: 190ms; }
+
+@keyframes block-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+}
+
+/* List rows fan in behind their card. The delay is capped in the JSX so a long
+   month does not turn into a slow cascade. */
 .row-item {
   /* `backwards` keeps a row hidden through its stagger delay instead of flashing
      in at full opacity first. */
-  animation: row-in 0.34s var(--ease-out) backwards;
+  animation: row-in 0.3s var(--ease-out) backwards;
 }
 
 @keyframes row-in {
   from {
     opacity: 0;
-    transform: translate3d(0, 12px, 0);
+    transform: translate3d(0, 10px, 0);
   }
 }
 
@@ -349,20 +372,40 @@ ol {
 }
 
 .row__title {
+  /* Must be a block box: this is a <span>, and on an inline box `overflow` and
+     `text-overflow` are ignored outright — which let a long note widen the row
+     until the whole screen scrolled sideways.
+     Two lines, then ellipsis, so a long note stays readable without the row
+     growing without limit. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  /* Clamping alone will not break a single unbroken run of characters, and one
+     long "word" is enough to push the row wider than the phone. */
+  overflow-wrap: anywhere;
   font-size: 15px;
   font-weight: 570;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.32;
 }
 
 .row__meta {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   font-size: 12.5px;
   color: var(--text-faint);
-  margin-top: 1px;
+  margin-top: 2px;
+}
+
+/* Flex children here are blockified, so truncation actually applies. */
+.row__meta > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .row__amount {
@@ -370,6 +413,8 @@ ol {
   font-weight: 650;
   letter-spacing: -0.01em;
   flex: none;
+  white-space: nowrap;
+  align-self: center;
 }
 
 .list {
@@ -504,7 +549,7 @@ ol {
 }
 
 .tabbar__btn.is-active svg {
-  transform: translateY(-1px) scale(1.08);
+  transform: translateY(-2px) scale(1.14);
 }
 
 /* ---------- Sheet ---------- */

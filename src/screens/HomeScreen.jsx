@@ -22,12 +22,13 @@ export default function HomeScreen({ install, onAdd, onEdit, onDelete, onOpenSet
     return {
       today,
       todayItems,
-      todayTotal: db.total(todayItems),
-      weekTotal: db.total(db.betweenDays(expenses, week.start, week.end)),
-      monthTotal: db.total(monthItems),
-      monthCount: monthItems.length,
+      todaySpent: db.spent(todayItems),
+      weekSpent: db.spent(db.betweenDays(expenses, week.start, week.end)),
+      month: db.totals(monthItems),
     };
   }, [expenses]);
+
+  const hasIncome = stats.month.income > 0;
 
   return (
     <div className="screen">
@@ -40,44 +41,62 @@ export default function HomeScreen({ install, onAdd, onEdit, onDelete, onOpenSet
 
       <section className="hero card">
         <span className="hero__label">Spent today</span>
-        <AnimatedAmount className="hero__amount" value={stats.todayTotal} currency={currency} />
+        <AnimatedAmount className="hero__amount" value={stats.todaySpent} currency={currency} />
         <span className="hero__meta">
           {stats.todayItems.length === 0
             ? "Nothing logged yet"
-            : `${stats.todayItems.length} ${stats.todayItems.length === 1 ? "expense" : "expenses"} today`}
+            : `${stats.todayItems.length} ${stats.todayItems.length === 1 ? "entry" : "entries"} today`}
         </span>
       </section>
+
+      {/* This month at a glance — income, spending, and what is left of the two. */}
+      <div className="ledger card">
+        <div className="ledger__col">
+          <span className="ledger__label">Income</span>
+          <span className="ledger__value ledger__value--income num">
+            {formatMoney(stats.month.income, currency)}
+          </span>
+        </div>
+        <div className="ledger__col">
+          <span className="ledger__label">Expense</span>
+          <span className="ledger__value ledger__value--expense num">
+            {formatMoney(stats.month.expense, currency)}
+          </span>
+        </div>
+        <div className="ledger__col">
+          <span className="ledger__label">Balance</span>
+          <span
+            className={`ledger__value num${stats.month.net < 0 ? " ledger__value--expense" : ""}`}
+          >
+            {formatMoney(stats.month.net, currency)}
+          </span>
+        </div>
+      </div>
 
       <div className="tiles">
         <div className="tile card">
           <span className="tile__label">This week</span>
-          <span className="tile__value num">{formatMoney(stats.weekTotal, currency)}</span>
+          <span className="tile__value num">{formatMoney(stats.weekSpent, currency)}</span>
         </div>
         <div className="tile card">
-          <span className="tile__label">This month</span>
-          <span className="tile__value num">{formatMoney(stats.monthTotal, currency)}</span>
+          <span className="tile__label">{hasIncome ? "Spent this month" : "This month"}</span>
+          <span className="tile__value num">{formatMoney(stats.month.expense, currency)}</span>
         </div>
       </div>
 
-      <div style={{ marginTop: "var(--sp-3)" }}>
-        <BudgetBar
-          spent={stats.monthTotal}
-          budget={settings.monthlyBudget}
-          currency={currency}
-          onSetBudget={onOpenSettings}
-        />
-      </div>
+      <BudgetBar
+        spent={stats.month.expense}
+        budget={settings.monthlyBudget}
+        currency={currency}
+        onSetBudget={onOpenSettings}
+      />
 
-      {install?.canInstall && (
-        <div style={{ marginTop: "var(--sp-3)" }}>
-          <InstallCard onInstall={install.promptInstall} />
-        </div>
-      )}
+      {install?.canInstall && <InstallCard onInstall={install.promptInstall} />}
 
       <h2 className="section-title">
-        <span>Today's expenses</span>
+        <span>Today</span>
         {stats.todayItems.length > 0 && (
-          <span className="num">{formatMoney(stats.todayTotal, currency)}</span>
+          <span className="num">{formatMoney(stats.todaySpent, currency)}</span>
         )}
       </h2>
 
@@ -85,7 +104,7 @@ export default function HomeScreen({ install, onAdd, onEdit, onDelete, onOpenSet
         <div className="card">
           <EmptyState
             icon="wallet"
-            title="No expenses today"
+            title="Nothing today"
             text="Tap the + button to log what you spent. It stays on this phone."
             action={
               <button type="button" className="btn btn--primary" onClick={onAdd}>
@@ -102,7 +121,7 @@ export default function HomeScreen({ install, onAdd, onEdit, onDelete, onOpenSet
               <li
                 key={expense.id}
                 className="row-item"
-                style={{ animationDelay: `${Math.min(i, 8) * 32}ms` }}
+                style={{ animationDelay: `${Math.min(i, 6) * 20}ms` }}
               >
                 {i > 0 && <div className="list__sep" />}
                 <ExpenseRow

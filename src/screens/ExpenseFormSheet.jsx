@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import CategoryIcon from "../components/CategoryIcon.jsx";
 import Icon from "../components/Icon.jsx";
+import Keypad from "../components/Keypad.jsx";
 import Sheet from "../components/Sheet.jsx";
-import { CATEGORIES, DEFAULT_CATEGORY, PAYMENT_MODES } from "../lib/categories.js";
+import { PAYMENT_MODES, categoriesFor, defaultCategoryFor } from "../lib/categories.js";
+import * as calc from "../lib/calc.js";
 import { shortDayLabel, todayKey, toKey } from "../lib/dates.js";
-import { formatMoney, parseAmount } from "../lib/money.js";
+import { formatMoney } from "../lib/money.js";
 
 function yesterdayKey() {
   const d = new Date();
@@ -13,41 +15,51 @@ function yesterdayKey() {
 }
 
 /**
- * Add / edit sheet. `expense` null means "add"; otherwise the fields are prefilled
+ * Add / edit sheet. `entry` null means "add"; otherwise the fields are prefilled
  * and a Delete button appears in the footer.
+ *
+ * The amount is driven by the keypad rather than an <input>, so the system
+ * keyboard never opens and the sheet never resizes underneath you.
  */
 export default function ExpenseFormSheet({ expense, currency, onSave, onDelete, onClose }) {
   const editing = Boolean(expense);
 
-  const [amountText, setAmountText] = useState(expense ? String(expense.amount) : "");
-  const [categoryId, setCategoryId] = useState(expense?.categoryId ?? DEFAULT_CATEGORY);
+  const [type, setType] = useState(expense?.type ?? "expense");
+  const [amount, setAmount] = useState(() =>
+    expense ? calc.fromAmount(expense.amount) : calc.emptyCalc(),
+  );
+  const [categoryId, setCategoryId] = useState(
+    expense?.categoryId ?? defaultCategoryFor("expense"),
+  );
   const [date, setDate] = useState(expense?.date ?? todayKey());
   const [note, setNote] = useState(expense?.note ?? "");
   const [paymentMode, setPaymentMode] = useState(expense?.paymentMode ?? "cash");
 
-  const amountRef = useRef(null);
-  const amount = parseAmount(amountText);
-  const valid = amount !== null && amount > 0;
+  const value = calc.calcValue(amount);
+  const valid = value !== null && value > 0;
+  const pending = calc.isPending(amount);
+  const income = type === "income";
 
-  /* Open the numeric keypad straight away when adding — the amount is the point. */
-  useEffect(() => {
-    if (editing) return;
-    const t = setTimeout(() => amountRef.current?.focus(), 260);
-    return () => clearTimeout(t);
-  }, [editing]);
+  /* Switching type swaps the whole category set, so the old pick cannot survive. */
+  const switchType = (next) => {
+    if (next === type) return;
+    setType(next);
+    setCategoryId(defaultCategoryFor(next));
+  };
 
   const submit = (close) => {
     if (!valid) return;
-    onSave({ amount, categoryId, date, note: note.trim(), paymentMode });
+    onSave({ type, amount: value, categoryId, date, note: note.trim(), paymentMode });
     close();
   };
 
   const today = todayKey();
   const yesterday = yesterdayKey();
+  const noun = income ? "income" : "expense";
 
   return (
     <Sheet
-      title={editing ? "Edit expense" : "Add expense"}
+      title={`${editing ? "Edit" : "Add"} ${noun}`}
       onClose={onClose}
       footer={({ close }) => (
         <>
@@ -59,50 +71,82 @@ export default function ExpenseFormSheet({ expense, currency, onSave, onDelete, 
                 onDelete(expense);
                 close();
               }}
-              aria-label="Delete expense"
+              aria-label={`Delete ${noun}`}
             >
               <Icon name="trash" size={18} />
             </button>
           )}
-          <button
-            type="button"
-            className="btn btn--primary btn--lg grow"
-            disabled={!valid}
-            onClick={() => submit(close)}
-          >
-            {editing ? "Save changes" : "Add expense"}
-          </button>
+          {/* While an operator is waiting, the primary button resolves the sum
+              instead of saving — one button, no separate "=" key to hunt for. */}
+          {pending ? (
+            <button
+              type="button"
+              className="btn btn--primary btn--lg grow"
+              onClick={() => setAmount(calc.pressEquals(amount))}
+            >
+              <Icon name="equals" size={18} />
+              Equals
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`btn btn--lg grow ${income ? "btn--income" : "btn--primary"}`}
+              disabled={!valid}
+              onClick={() => submit(close)}
+            >
+              {editing ? "Save changes" : `Add ${noun}`}
+            </button>
+          )}
         </>
       )}
     >
-      {({ close }) => (
+      {() => (
         <>
-          {/* Amount */}
-          <div className="amount-input">
-            <span className="amount-input__symbol">{currency}</span>
-            <input
-              ref={amountRef}
-              className="amount-input__field num"
-              type="text"
-              inputMode="decimal"
-              enterKeyHint="done"
-              placeholder="0"
-              value={amountText}
-              maxLength={12}
-              onChange={(e) => setAmountText(e.target.value.replace(/[^0-9.]/g, ""))}
-              onKeyDown={(e) => e.key === "Enter" && submit(close)}
-              aria-label="Amount"
-            />
+          {/* Expense / Income */}
+          <div className="seg seg--type">
+            <button
+              type="button"
+              className={`seg__btn${!income ? " is-active" : ""}`}
+              onClick={() => switchType("expense")}
+              aria-pressed={!income}
+            >
+              Expense
+            </button>
+            <button
+              type="button"
+              className={`seg__btn seg__btn--income${income ? " is-active" : ""}`}
+              onClick={() => switchType("income")}
+              aria-pressed={income}
+            >
+              Income
+            </button>
           </div>
-          {valid && amount >= 1000 && (
-            <p className="amount-input__echo num">{formatMoney(amount, currency)}</p>
-          )}
+
+          {/* Amount */}
+          <div className={`amount-display${income ? " amount-display--income" : ""}`}>
+            <span className="amount-display__pending num">{calc.pendingText(amount)}</span>
+            <span className="amount-display__row">
+              {/* Hidden mid-calculation: a "−" beside 80 while adding 250 + 80 reads
+                  as "minus 80" rather than "this is an expense". */}
+              {!pending && <span className="amount-display__sign">{income ? "+" : "−"}</span>}
+              <span className="amount-display__symbol">{currency}</span>
+              <span className="amount-display__value num">{calc.displayText(amount)}</span>
+            </span>
+          </div>
+
+          <Keypad
+            activeOperator={amount.entry === "" ? amount.op : null}
+            onDigit={(d) => setAmount(calc.pressDigit(amount, d))}
+            onDot={() => setAmount(calc.pressDot(amount))}
+            onOperator={(op) => setAmount(calc.pressOperator(amount, op))}
+            onBackspace={() => setAmount(calc.pressBackspace(amount))}
+          />
 
           {/* Category */}
-          <div className="field" style={{ marginTop: "var(--sp-5)" }}>
+          <div className="field">
             <span className="field__label">Category</span>
             <div className="cat-grid">
-              {CATEGORIES.map((c) => (
+              {categoriesFor(type).map((c) => (
                 <button
                   key={c.id}
                   type="button"
@@ -158,18 +202,17 @@ export default function ExpenseFormSheet({ expense, currency, onSave, onDelete, 
             <input
               className="input"
               type="text"
-              placeholder="Lunch at office"
+              placeholder={income ? "August salary" : "Lunch at office"}
               value={note}
               maxLength={120}
               enterKeyHint="done"
               onChange={(e) => setNote(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit(close)}
             />
           </div>
 
           {/* Payment mode */}
           <div className="field">
-            <span className="field__label">Paid by</span>
+            <span className="field__label">{income ? "Received in" : "Paid by"}</span>
             <div className="seg">
               {PAYMENT_MODES.map((m) => (
                 <button
@@ -184,6 +227,10 @@ export default function ExpenseFormSheet({ expense, currency, onSave, onDelete, 
               ))}
             </div>
           </div>
+
+          {valid && value >= 1000 && (
+            <p className="amount-echo num">{formatMoney(value, currency)}</p>
+          )}
         </>
       )}
     </Sheet>

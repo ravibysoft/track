@@ -6,9 +6,13 @@
  */
 import {
   addMonths,
+  addWeeks,
+  addYears,
   differenceInCalendarDays,
+  eachDayOfInterval,
   endOfWeek,
   format,
+  getDay,
   getDaysInMonth,
   parseISO,
   startOfWeek,
@@ -101,3 +105,65 @@ export function inRange(dayKey, start, end) {
 export function isValidKey(key) {
   return typeof key === "string" && /^\d{4}-\d{2}-\d{2}$/.test(key);
 }
+
+/* ---------- Period helpers (week / month / year views) ---------- */
+
+/** Shifts a day key by whole weeks, keeping it a Monday-start anchor. */
+export function shiftWeek(dayKey, delta) {
+  return toKey(startOfWeek(addWeeks(fromKey(dayKey), delta), WEEK_OPTS));
+}
+
+export function shiftYear(year, delta) {
+  return format(addYears(parseISO(`${year}-01-01`), delta), "yyyy");
+}
+
+export function currentYear() {
+  return format(new Date(), "yyyy");
+}
+
+/** "1–7 Sep" / "29 Sep – 5 Oct" for the week header. */
+export function weekLabel(dayKey) {
+  const { start, end } = weekRange(dayKey);
+  const a = fromKey(start);
+  const b = fromKey(end);
+  const sameMonth = a.getMonth() === b.getMonth();
+  return sameMonth
+    ? `${format(a, "d")} – ${format(b, "d MMM yyyy")}`
+    : `${format(a, "d MMM")} – ${format(b, "d MMM yyyy")}`;
+}
+
+/** Every day key in the week containing `dayKey`, Monday first. */
+export function weekDays(dayKey) {
+  const { start, end } = weekRange(dayKey);
+  return eachDayOfInterval({ start: fromKey(start), end: fromKey(end) }).map(toKey);
+}
+
+/** The twelve month keys of a year. */
+export function yearMonths(year) {
+  return Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
+}
+
+export function monthShortLabel(monthKey) {
+  return format(parseISO(`${monthKey}-01`), "MMM");
+}
+
+export function yearRange(year) {
+  return { start: `${year}-01-01`, end: `${year}-12-31` };
+}
+
+export function monthRange(monthKey) {
+  const days = monthDays(monthKey);
+  return { start: days[0], end: days[days.length - 1] };
+}
+
+/**
+ * How many blank cells precede the 1st in a Monday-start calendar grid.
+ * date-fns `getDay` is Sunday-based, so Sunday (0) becomes 6.
+ */
+export function leadingBlanks(monthKey) {
+  const weekday = getDay(parseISO(`${monthKey}-01`));
+  return (weekday + 6) % 7;
+}
+
+/** Mon…Sun headers for the calendar grid. */
+export const WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];

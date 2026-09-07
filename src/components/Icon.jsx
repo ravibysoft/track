@@ -16,6 +16,16 @@ const PATHS = {
   entertainment: "M3 5h18v14H3zM8 5v14M16 5v14M3 9.5h5M3 14.5h5M16 9.5h5M16 14.5h5",
   other: "M3 7.5l9-4.5 9 4.5v9l-9 4.5-9-4.5zM3 7.5l9 4.5 9-4.5M12 12v9",
 
+  /* Income categories */
+  salary: "M2.5 7h19a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-19a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6zM5.5 10h.01M18.5 14h.01",
+  business:
+    "M3.5 7.5h17a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-17a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1zM9 7.5V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2.5M2.5 12.5h19",
+  freelance:
+    "M4 5.5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zM1.5 19.5h21",
+  gift: "M3.5 12h17v8a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1zM2.5 8h19v4h-19zM12 8v13M12 8S10.5 4 8 4a2 2 0 0 0 0 4zM12 8s1.5-4 4-4a2 2 0 0 1 0 4z",
+  interest: "M4 19.5 10 13l4 4 6.5-8M15 8.5h5.5V14",
+  refund: "M3 8h11a6 6 0 0 1 0 12H8M3 8l4-4M3 8l4 4",
+
   /* Navigation */
   home: "M3 9.6 12 3l9 6.6V20a1 1 0 0 1-1 1h-5v-6.5H9V21H4a1 1 0 0 1-1-1z",
   history: "M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01",
@@ -46,6 +56,12 @@ const PATHS = {
   filter: "M3 5h18l-7 8v6l-4 2v-8z",
   target: "M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18zM12 16.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9zM12 13.2a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4z",
   undo: "M3 8h11a6 6 0 0 1 0 12H8M3 8l4-4M3 8l4 4",
+  backspace: "M10 5h9a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-9L3 12zM17 9.5l-5 5M12 9.5l5 5",
+  minus: "M5 12h14",
+  divide: "M5 12h14M12 6.5h.01M12 17.5h.01",
+  multiply: "M6.5 6.5l11 11M17.5 6.5l-11 11",
+  equals: "M5 9.5h14M5 14.5h14",
+  calendar_grid: "M4 5h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM16 3v4M8 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 17.5h.01M12 17.5h.01",
 };
 
 export default function Icon({ name, size, className, style }) {
