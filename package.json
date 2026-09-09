@@ -25,9 +25,7 @@
     "date-fns": "^4.4.0",
     "lucide-react": "^1.42.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "react-is": "^19.2.8",
-    "recharts": "^3.10.1"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.1",

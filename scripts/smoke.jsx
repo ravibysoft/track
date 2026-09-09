@@ -104,40 +104,6 @@ globalThis.requestAnimationFrame = (cb) => setTimeout(() => cb(performance.now()
 
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 
-/* jsdom has no layout engine, so charts would measure 0px and skip rendering.
-
-   A stub ResizeObserver plus fixed offset sizes give them a real box to draw in. */
-
-class StubResizeObserver {
-
-  constructor(callback) {
-
-    this.callback = callback;
-
-  }
-
-  observe(target) {
-
-    this.callback([{ target, contentRect: { width: 360, height: 196, top: 0, left: 0 } }], this);
-
-  }
-
-  unobserve() {}
-
-  disconnect() {}
-
-}
-
-window.ResizeObserver = StubResizeObserver;
-
-globalThis.ResizeObserver = StubResizeObserver;
-
-Object.defineProperty(window.HTMLElement.prototype, "offsetWidth", { get: () => 360 });
-
-Object.defineProperty(window.HTMLElement.prototype, "offsetHeight", { get: () => 196 });
-
-
-
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 
@@ -516,11 +482,37 @@ check("category breakdown rendered", $$(".bd-row").length === 2, `${$$(".bd-row"
 
 check("donut centre shows a compact total", text(".donut__value") === "₹1.3L", `got "${text(".donut__value")}"`);
 
-check("donut slices drawn", $$(".recharts-sector").length === 2, `${$$(".recharts-sector").length} sectors`);
+check("donut slices drawn", $$(".donut__slice").length === 2, `${$$(".donut__slice").length} slices`);
 
-check("daily bars drawn", $$(".recharts-bar-rectangle").length > 0, `${$$(".recharts-bar-rectangle").length} bars`);
+/* Every slice must carry a real arc. An empty `d` draws nothing but would still
+   satisfy a count, which is exactly how a broken arc formula would slip past. */
+check("each slice has an arc path", $$(".donut__slice").every((p) => (p.getAttribute("d") ?? "").length > 20));
 
-check("month axis labelled", $$(".recharts-cartesian-axis-tick").length > 0, `${$$(".recharts-cartesian-axis-tick").length} ticks`);
+check("a bar per day of the month", $$(".bars__col").length === monthDays(todayKey().slice(0, 7)).length, `${$$(".bars__col").length} bars`);
+
+check("the axis labels every fifth day", $$(".bars__label").map((l) => l.textContent).filter(Boolean).join(",") === "1,6,11,16,21,26,31".split(",").filter((d) => Number(d) <= $$(".bars__col").length).join(","), $$(".bars__label").map((l) => l.textContent).filter(Boolean).join(","));
+
+check("bars announce their own value", /₹/.test($$(".bars__col")[0]?.getAttribute("aria-label") ?? ""), $$(".bars__col")[0]?.getAttribute("aria-label"));
+
+/* Tapping is the only way to read a value on a phone — there is no hover — so
+   the read-out has to follow the tap. */
+await click($$(".bars__col")[0], "the first bar");
+
+check("tapping a bar reports the day and amount", /₹/.test(text(".section-head__note")), `got "${text(".section-head__note")}"`);
+
+check("exactly one bar reads as selected", $$(".bars__col.is-active").length === 1, `${$$(".bars__col.is-active").length} active`);
+
+/* A tapped slice answers in the middle of the donut, where the total sits — the
+   centre *is* the tooltip, so it has to give the category back and then let go. */
+await click($$(".donut__slice")[0], "a slice");
+
+check("tapping a slice names its category", text(".donut__label") !== "Spent", `got "${text(".donut__label")}"`);
+
+check("tapping a slice shows its share", /% of spending/.test(text(".donut__share")), `got "${text(".donut__share")}"`);
+
+await click($$(".donut__slice")[0], "the same slice again");
+
+check("tapping it again returns to the total", text(".donut__label") === "Spent", `got "${text(".donut__label")}"`);
 
 
 
@@ -891,6 +883,7 @@ console.log("Crash recovery");
   const boundaryRoot = createRoot(host);
 
   let explode = true;
+  // eslint-disable-next-line react/only-export-components -- a fixture, not a screen
   const Maybe = () => {
     if (explode) throw new Error("kaboom");
     return createElement("p", { id: "fine" }, "ok");

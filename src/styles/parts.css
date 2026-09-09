@@ -432,6 +432,16 @@
   display: flex;
   align-items: center;
   gap: var(--sp-3);
+  width: 100%;
+  text-align: left;
+  border-radius: var(--r-sm);
+  transition: background 0.16s var(--ease-out);
+}
+
+/* Selecting a row is the same act as tapping its slice, so it has to look picked. */
+.bd-row.is-active {
+  background: var(--surface-2);
+  box-shadow: 0 0 0 var(--sp-2) var(--surface-2);
 }
 
 .bd-row__head {
@@ -1736,5 +1746,120 @@
   line-height: 1.45;
   text-align: left;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Donut (hand-drawn SVG, see components/DonutChart.jsx) ---------- */
+
+.donut__svg {
+  display: block;
+  width: 100%;
+  overflow: visible; /* the selected slice lifts out of the 0–100 viewBox */
+}
+
+.donut__slice {
+  cursor: pointer;
+  transform-origin: 50% 50%;
+  transition: opacity 0.18s var(--ease-out);
+  animation: donut-in 0.5s var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+.donut__slice:active {
+  opacity: 0.75;
+}
+
+@keyframes donut-in {
+  from {
+    opacity: 0;
+    transform: scale(0.82) rotate(-14deg);
+  }
+}
+
+.donut__share {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* ---------- Bars (see components/BarChart.jsx) ---------- */
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: calc(var(--bars-h) + 18px);
+}
+
+.bars__col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  height: 100%;
+  padding: 0;
+}
+
+.bars__track {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 4px;
+  /* An empty column is still a tap target, and the faint ground shows where. */
+  background: var(--surface-2);
+}
+
+.bars__fill {
+  width: 100%;
+  border-radius: 4px 4px 2px 2px;
+  transform-origin: bottom;
+  animation: bar-rise 0.52s var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 12ms);
+  transition: filter 0.16s var(--ease-out);
+}
+
+.bars__col.is-active .bars__track {
+  background: var(--accent-soft);
+}
+
+.bars__col.is-active .bars__fill {
+  filter: brightness(1.15);
+}
+
+@keyframes bar-rise {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.bars__label {
+  height: 13px;
+  font-size: 10.5px;
+  line-height: 13px;
+  color: var(--text-faint);
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* A section heading that carries a live read-out on the right. */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.section-head .section-title {
+  flex: none;
+}
+
+.section-head__note {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: right;
   overflow-wrap: anywhere;
 }

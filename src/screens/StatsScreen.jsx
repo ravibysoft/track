@@ -1,16 +1,8 @@
 import { useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-} from "recharts";
 import AnimatedAmount from "../components/AnimatedAmount.jsx";
+import BarChart from "../components/BarChart.jsx";
 import CategoryIcon from "../components/CategoryIcon.jsx";
+import DonutChart from "../components/DonutChart.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import Icon from "../components/Icon.jsx";
 import useThemeColors from "../hooks/useThemeColors.js";
@@ -27,6 +19,7 @@ import {
   monthKeyOf,
   shiftMonth,
   shiftWeek,
+  shortDayLabel,
   shiftYear,
   todayKey,
   weekDays,
@@ -56,7 +49,13 @@ function buildPeriod(period, anchors) {
       end,
       label: weekLabel(anchors.week),
       previousLabel: "last week",
-      buckets: days.map((day, i) => ({ key: day, label: DAY_INITIALS[i], match: (e) => e.date === day })),
+      buckets: days.map((day, i) => ({
+        key: day,
+        label: DAY_INITIALS[i],
+        // The axis has room for one letter; the selection line has room for a date.
+        longLabel: shortDayLabel(day),
+        match: (e) => e.date === day,
+      })),
       axisInterval: 0,
     };
   }
@@ -71,6 +70,7 @@ function buildPeriod(period, anchors) {
       buckets: months.map((m) => ({
         key: m,
         label: monthShortLabel(m),
+        longLabel: monthLabel(m, true),
         match: (e) => monthKeyOf(e.date) === m,
       })),
       axisInterval: 1,
@@ -86,6 +86,7 @@ function buildPeriod(period, anchors) {
     buckets: days.map((day) => ({
       key: day,
       label: String(dayOfMonth(day)),
+      longLabel: shortDayLabel(day),
       match: (e) => e.date === day,
     })),
     axisInterval: 4,
@@ -103,7 +104,20 @@ export default function StatsScreen() {
     year: currentYear(),
   }));
 
+  /* Tapping a slice or a bar is how you read a chart on a phone — there is no
+     hover. Both selections are cleared whenever the period moves, so a stale
+     highlight never survives into a span it doesn't belong to. */
+  const [activeSlice, setActiveSlice] = useState(null);
+  const [activeBar, setActiveBar] = useState(null);
+
   const shape = useMemo(() => buildPeriod(period, anchors), [period, anchors]);
+
+  /* Cleared by whatever moved the period, rather than by an effect watching it —
+     an effect would render the stale highlight once before wiping it. */
+  const clearSelection = () => {
+    setActiveSlice(null);
+    setActiveBar(null);
+  };
 
   const data = useMemo(() => {
     const items = db.betweenDays(expenses, shape.start, shape.end);
@@ -145,13 +159,15 @@ export default function StatsScreen() {
   const change =
     data.previousSpent > 0 ? (data.totals.expense - data.previousSpent) / data.previousSpent : null;
 
-  const step = (delta) =>
+  const step = (delta) => {
+    clearSelection();
     setAnchors((a) => ({
       ...a,
       week: period === "week" ? shiftWeek(a.week, delta) : a.week,
       month: period === "month" ? shiftMonth(a.month, delta) : a.month,
       year: period === "year" ? shiftYear(a.year, delta) : a.year,
     }));
+  };
 
   const atLatest =
     period === "week"
@@ -161,6 +177,8 @@ export default function StatsScreen() {
         : anchors.month >= currentMonthKey();
 
   const unit = period === "year" ? "month" : "day";
+  const selectedSlice = data.breakdown.find((s) => s.categoryId === activeSlice) ?? null;
+  const selectedBar = data.series.find((s) => s.key === activeBar) ?? null;
 
   return (
     <div className="screen">
@@ -183,7 +201,10 @@ export default function StatsScreen() {
             key={p.id}
             type="button"
             className={`seg__btn${period === p.id ? " is-active" : ""}`}
-            onClick={() => setPeriod(p.id)}
+            onClick={() => {
+              clearSelection();
+              setPeriod(p.id);
+            }}
             aria-pressed={period === p.id}
           >
             {p.label}
@@ -280,30 +301,32 @@ export default function StatsScreen() {
           <h2 className="section-title">By category</h2>
           <div className="card card--pad">
             <div className="donut">
-              <ResponsiveContainer width="100%" height={196}>
-                <PieChart>
-                  <Pie
-                    data={data.breakdown}
-                    dataKey="amount"
-                    nameKey="categoryId"
-                    innerRadius="62%"
-                    outerRadius="94%"
-                    paddingAngle={data.breakdown.length > 1 ? 2 : 0}
-                    strokeWidth={0}
-                    animationDuration={620}
-                  >
-                    {data.breakdown.map((slice) => (
-                      <Cell key={slice.categoryId} fill={colors[slice.categoryId]} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<ChartTooltip currency={currency} kind="category" />} />
-                </PieChart>
-              </ResponsiveContainer>
+              <DonutChart
+                data={data.breakdown}
+                colorOf={(s) => colors[s.categoryId]}
+                labelOf={(s) => getCategory(s.categoryId).label}
+                valueOf={(s) => formatMoney(s.amount, currency)}
+                selected={activeSlice}
+                onSelect={setActiveSlice}
+              />
+              {/* The middle of a donut is the natural place for the detail, so a
+                  tapped slice reports itself there instead of in a tooltip that
+                  would have to float clear of the ring on a narrow screen. */}
               <div className="donut__center">
-                <span className="donut__label">Spent</span>
-                <span className="donut__value num">
-                  {formatCompact(data.totals.expense, currency)}
+                <span className="donut__label">
+                  {selectedSlice ? getCategory(selectedSlice.categoryId).label : "Spent"}
                 </span>
+                <span className="donut__value num">
+                  {formatCompact(
+                    selectedSlice ? selectedSlice.amount : data.totals.expense,
+                    currency,
+                  )}
+                </span>
+                {selectedSlice && (
+                  <span className="donut__share num">
+                    {Math.round(selectedSlice.share * 100)}% of spending
+                  </span>
+                )}
               </div>
             </div>
 
@@ -311,7 +334,15 @@ export default function StatsScreen() {
               {data.breakdown.map((slice) => {
                 const category = getCategory(slice.categoryId);
                 return (
-                  <li key={slice.categoryId} className="bd-row">
+                  <li key={slice.categoryId}>
+                    <button
+                      type="button"
+                      className={`bd-row${activeSlice === slice.categoryId ? " is-active" : ""}`}
+                      aria-pressed={activeSlice === slice.categoryId}
+                      onClick={() =>
+                        setActiveSlice(activeSlice === slice.categoryId ? null : slice.categoryId)
+                      }
+                    >
                     <CategoryIcon id={slice.categoryId} size="sm" />
                     <span className="grow">
                       <span className="bd-row__head">
@@ -331,36 +362,33 @@ export default function StatsScreen() {
                       </span>
                     </span>
                     <span className="bd-row__pct num">{Math.round(slice.share * 100)}%</span>
+                    </button>
                   </li>
                 );
               })}
             </ul>
           </div>
 
-          <h2 className="section-title">Spending by {unit}</h2>
+          <div className="section-head">
+            <h2 className="section-title">Spending by {unit}</h2>
+            {/* A tapped bar reports here rather than in a floating tooltip: at 31
+                bars across a phone, a tip over the first or last one would hang
+                off the card. */}
+            <span className="section-head__note num">
+              {selectedBar
+                ? `${shape.buckets.find((b) => b.key === selectedBar.key)?.longLabel ?? selectedBar.label} · ${formatMoney(selectedBar.amount, currency)}`
+                : `Tap a ${unit}`}
+            </span>
+          </div>
           <div className="card card--pad">
-            <ResponsiveContainer width="100%" height={168}>
-              <BarChart data={data.series} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
-                <XAxis
-                  dataKey="label"
-                  interval={shape.axisInterval}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fill: colors["text-faint"], fontSize: 11 }}
-                  dy={4}
-                />
-                <Tooltip
-                  cursor={{ fill: colors.border }}
-                  content={<ChartTooltip currency={currency} kind="bucket" unit={unit} />}
-                />
-                <Bar
-                  dataKey="amount"
-                  fill={colors.accent}
-                  radius={[4, 4, 2, 2]}
-                  animationDuration={620}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            <BarChart
+              data={data.series}
+              color={colors.accent}
+              labelInterval={shape.axisInterval}
+              selected={activeBar}
+              onSelect={setActiveBar}
+              format={(n) => formatMoney(n, currency)}
+            />
           </div>
         </>
       )}
@@ -368,17 +396,3 @@ export default function StatsScreen() {
   );
 }
 
-function ChartTooltip({ active, payload, currency, kind, unit }) {
-  if (!active || !payload?.length) return null;
-  const item = payload[0].payload;
-  const title =
-    kind === "category"
-      ? getCategory(item.categoryId).label
-      : `${unit === "month" ? "" : `${unit} `}${item.label}`.trim();
-  return (
-    <div className="chart-tip">
-      <span className="chart-tip__title">{title}</span>
-      <span className="chart-tip__value num">{formatMoney(item.amount, currency)}</span>
-    </div>
-  );
-}
