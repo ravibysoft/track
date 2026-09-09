@@ -204,7 +204,7 @@ const { formatMoney, parseAmount, formatCompact } = await import("../src/lib/mon
 
 const { buildCsv, buildJson } = await import("../src/lib/backup.js");
 
-const { dayLabel, monthDays, shiftMonth, toKey, todayKey } = await import("../src/lib/dates.js");
+const { currentMonthKey, dayLabel, monthDays, monthLabel, shiftMonth, toKey, todayKey } = await import("../src/lib/dates.js");
 
 
 
@@ -450,6 +450,29 @@ await type($('.search-bar input'), "lunch");
 await settle();
 
 check("search filters to one row", $$(".row").length === 1, `${$$(".row").length} rows`);
+
+check("the search says how far it reached", /across all months/.test(text(".search-note")), `got "${text(".search-note")}"`);
+
+/* The whole point of the search is that it leaves the month behind: the entry you
+   are hunting for is the one whose month you cannot remember. Stepping back to an
+   empty month must not hide a match that is still in view. */
+await click($('.period-bar .icon-btn[aria-label="Previous"]'), "previous month");
+
+await settle();
+
+check("a search still finds entries from other months", $$(".row").length === 1, `${$$(".row").length} rows`);
+
+/* And that step has to be undoable without counting months back. */
+check("wandering off shows a Today pill", !!byText(".pill", "Today"));
+
+await click(byText(".pill", "Today"), "Today pill");
+
+await settle();
+
+check("Today returns to this month", text(".period-bar__label") === monthLabel(currentMonthKey()), `got "${text(".period-bar__label")}"`);
+
+check("and the pill retires once there is nowhere to go", !byText(".pill", "Today"));
+
 
 await click($('.period-bar .icon-btn[aria-label="Close search"]'), "close search");
 await settle();

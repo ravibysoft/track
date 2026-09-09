@@ -61,13 +61,23 @@ export default function HistoryScreen({
   const periodItems = yearly ? yearItems : monthItems;
   const summary = useMemo(() => db.totals(periodItems), [periodItems]);
 
-  /* Daily is the only tab that filters, so its list is derived separately. */
+  const searching = query.trim().length > 0;
+
+  /* Daily is the only tab that filters, so its list is derived separately.
+     A search deliberately leaves the month behind: looking for a hotel bill you
+     paid some time last year is exactly when you don't know which month to open,
+     and stepping back through them one at a time is the thing being avoided. */
   const dailyGroups = useMemo(() => {
-    let list = monthItems;
-    if (selectedDay) list = list.filter((e) => e.date === selectedDay);
+    let list = searching ? expenses : monthItems;
+    if (selectedDay && !searching) list = list.filter((e) => e.date === selectedDay);
     if (categoryId) list = list.filter((e) => e.categoryId === categoryId);
     return db.groupByDay(db.search(list, query, labelOf));
-  }, [monthItems, selectedDay, categoryId, query]);
+  }, [expenses, monthItems, searching, selectedDay, categoryId, query]);
+
+  const found = useMemo(
+    () => dailyGroups.reduce((n, g) => n + g.items.length, 0),
+    [dailyGroups],
+  );
 
   const dayTotals = useMemo(() => db.dayTotalsMap(monthItems), [monthItems]);
 
@@ -99,6 +109,15 @@ export default function HistoryScreen({
   const atLatest = yearly ? year >= currentYear() : month >= currentMonthKey();
   const periodLabel = yearly ? year : monthLabel(month);
 
+  /* Stepping back a month at a time is easy; getting back is not. The pill only
+     exists while it has somewhere to go. */
+  const away = yearly ? year !== currentYear() : month !== currentMonthKey();
+  const goToToday = () => {
+    setMonth(currentMonthKey());
+    setYear(currentYear());
+    setSelectedDay(null);
+  };
+
   return (
     <div className="screen screen--split">
       {/* Pinned header: period bar, tabs and summary stay put while the list scrolls. */}
@@ -114,6 +133,11 @@ export default function HistoryScreen({
             <Icon name="left" />
           </button>
           <span className="period-bar__label">{periodLabel}</span>
+          {away && (
+            <button type="button" className="pill" onClick={goToToday}>
+              Today
+            </button>
+          )}
           <button
             type="button"
             className="icon-btn"
@@ -188,7 +212,7 @@ export default function HistoryScreen({
                 <input
                   className="grow"
                   type="search"
-                  placeholder="Search note, amount or category"
+                  placeholder="Search all months"
                   value={query}
                   autoFocus
                   onChange={(e) => setQuery(e.target.value)}
@@ -205,6 +229,14 @@ export default function HistoryScreen({
                   </button>
                 )}
               </label>
+            )}
+
+            {searching && (
+              <p className="search-note">
+                {found === 0
+                  ? "Nothing matches, in any month."
+                  : `${found} ${found === 1 ? "entry" : "entries"} across all months`}
+              </p>
             )}
 
             <div className="chip-row">
@@ -239,9 +271,11 @@ export default function HistoryScreen({
                   icon="wallet"
                   title="No data available"
                   text={
-                    expenses.length
-                      ? "Nothing in this month matches. Try another month or clear the search."
-                      : "Everything you add shows up here, grouped day by day."
+                    !expenses.length
+                      ? "Everything you add shows up here, grouped day by day."
+                      : searching
+                        ? "No entry anywhere matches that. Try a shorter word or an amount."
+                        : "Nothing in this month. Step back a month, or add an entry."
                   }
                 />
               </div>

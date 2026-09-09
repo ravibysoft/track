@@ -262,8 +262,10 @@ export default function StatsScreen() {
             </span>
           </section>
 
+          {/* No Expense column: the hero right above it is that same number, and
+              printing it twice, forty pixels apart, taught the reader nothing. */}
           {data.totals.income > 0 && (
-            <div className="ledger card">
+            <div className="ledger ledger--pair card">
               <div className="ledger__col">
                 <span className="ledger__label">Income</span>
                 <span className="ledger__value ledger__value--income num">
@@ -271,17 +273,13 @@ export default function StatsScreen() {
                 </span>
               </div>
               <div className="ledger__col">
-                <span className="ledger__label">Expense</span>
-                <span className="ledger__value ledger__value--expense num">
-                  {formatMoney(data.totals.expense, currency)}
+                <span className="ledger__label">
+                  {data.totals.net < 0 ? "Overspent by" : "Left over"}
                 </span>
-              </div>
-              <div className="ledger__col">
-                <span className="ledger__label">Balance</span>
                 <span
                   className={`ledger__value num${data.totals.net < 0 ? " ledger__value--expense" : ""}`}
                 >
-                  {formatMoney(data.totals.net, currency)}
+                  {formatMoney(Math.abs(data.totals.net), currency)}
                 </span>
               </div>
             </div>
