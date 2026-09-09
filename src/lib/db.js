@@ -6,13 +6,16 @@
  * `type`, so it is read as an expense — that keeps old backups and old installs
  * working untouched.
  */
-import { CATEGORIES, categoryFitsType, defaultCategoryFor } from "./categories.js";
+import {
+  defaultCategories,
+  defaultCategoryFor,
+  normalizeCategories,
+} from "./categories.js";
 import { isValidKey, monthKeyOf, todayKey } from "./dates.js";
 import { DEFAULT_CURRENCY, round2, sum } from "./money.js";
 
 export const DOC_VERSION = 1;
 
-const VALID_CATEGORY = new Set(CATEGORIES.map((c) => c.id));
 const VALID_MODE = new Set(["cash", "upi", "card"]);
 
 export function emptyDoc() {
@@ -24,6 +27,7 @@ export function emptyDoc() {
       monthlyBudget: 0,
       // Defaults to the white theme; System and Dark stay available in Settings.
       theme: "light",
+      categories: defaultCategories(),
     },
   };
 }
@@ -41,12 +45,18 @@ export function migrate(raw) {
   const base = emptyDoc();
   if (!raw || typeof raw !== "object") return base;
 
-  const expenses = Array.isArray(raw.expenses)
-    ? raw.expenses.map(sanitizeEntry).filter(Boolean)
-    : [];
-
   const s = raw.settings && typeof raw.settings === "object" ? raw.settings : {};
   const budget = Number(s.monthlyBudget);
+
+  /* Categories are resolved first and handed to the sanitiser, rather than read
+     from the live registry: an imported backup brings its own list, and its
+     entries have to be checked against that list, not against whatever the app
+     happened to be showing a moment earlier. */
+  const categories = normalizeCategories(s.categories);
+
+  const expenses = Array.isArray(raw.expenses)
+    ? raw.expenses.map((e) => sanitizeEntry(e, categories)).filter(Boolean)
+    : [];
 
   return {
     version: DOC_VERSION,
@@ -55,11 +65,12 @@ export function migrate(raw) {
       currency: typeof s.currency === "string" && s.currency ? s.currency : base.settings.currency,
       monthlyBudget: Number.isFinite(budget) && budget > 0 ? round2(budget) : 0,
       theme: ["system", "light", "dark"].includes(s.theme) ? s.theme : base.settings.theme,
+      categories,
     },
   };
 }
 
-function sanitizeEntry(raw) {
+function sanitizeEntry(raw, categories) {
   if (!raw || typeof raw !== "object") return null;
   const amount = Number(raw.amount);
   if (!Number.isFinite(amount) || amount <= 0) return null;
@@ -69,12 +80,12 @@ function sanitizeEntry(raw) {
   const date = isValidKey(raw.date) ? raw.date : todayKey();
   const now = new Date().toISOString();
 
-  // A category from the wrong set would render with the wrong icon and pollute
-  // the breakdown, so fall back to that type's default instead.
-  const categoryId =
-    VALID_CATEGORY.has(raw.categoryId) && categoryFitsType(raw.categoryId, type)
-      ? raw.categoryId
-      : defaultCategoryFor(type);
+  /* A category from the wrong set would render with the wrong icon and pollute
+     the breakdown, so it falls back to that type's default. An id nobody knows
+     is left alone: it is most likely a custom category that was deleted while
+     entries still pointed at it, and rewriting those would lose what the entry
+     actually said. getCategory renders it neutrally. */
+  const categoryId = resolveCategory(raw.categoryId, type, categories);
 
   return {
     id: typeof raw.id === "string" && raw.id ? raw.id : newId(),
@@ -89,15 +100,22 @@ function sanitizeEntry(raw) {
   };
 }
 
+function resolveCategory(id, type, categories) {
+  if (typeof id !== "string" || !id) return defaultCategoryFor(type);
+  const known = categories?.find((c) => c.id === id);
+  if (!known) return id;
+  return known.kind === type ? id : defaultCategoryFor(type);
+}
+
 /* ---------- Mutations ---------- */
 
-export function buildEntry(input) {
+export function buildEntry(input, categories) {
   const now = new Date().toISOString();
-  return sanitizeEntry({ ...input, id: newId(), createdAt: now, updatedAt: now });
+  return sanitizeEntry({ ...input, id: newId(), createdAt: now, updatedAt: now }, categories);
 }
 
 export function addExpense(doc, input) {
-  const entry = buildEntry(input);
+  const entry = buildEntry(input, doc.settings.categories);
   if (!entry) return doc;
   return { ...doc, expenses: [entry, ...doc.expenses] };
 }
@@ -107,7 +125,10 @@ export function updateExpense(doc, id, patch) {
     ...doc,
     expenses: doc.expenses.map((e) =>
       e.id === id
-        ? (sanitizeEntry({ ...e, ...patch, updatedAt: new Date().toISOString() }) ?? e)
+        ? (sanitizeEntry(
+            { ...e, ...patch, updatedAt: new Date().toISOString() },
+            doc.settings.categories,
+          ) ?? e)
         : e,
     ),
   };

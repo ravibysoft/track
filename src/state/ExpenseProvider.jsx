@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { setCategoryRegistry } from "../lib/categories.js";
 import * as db from "../lib/db.js";
 import { flushSave, installFlushHooks, readDoc, scheduleSave } from "../lib/storage.js";
 import { ExpenseContext } from "./useExpenses.js";
@@ -7,6 +8,16 @@ export function ExpenseProvider({ children }) {
   const [doc, setDoc] = useState(db.emptyDoc);
   const [loaded, setLoaded] = useState(false);
   const loadedRef = useRef(false);
+
+  /* Published during render, not from an effect: rows, chips and chart slices all
+     read the category list synchronously as they render, so it has to be current
+     before this provider's children run — an effect fires after they have already
+     drawn with the old list. It is a plain assignment of derived data, so running
+     it twice (StrictMode) changes nothing. */
+  const categories = useMemo(
+    () => setCategoryRegistry(doc.settings.categories),
+    [doc.settings.categories],
+  );
 
   /* Load once, then let every later change write itself back. */
   useEffect(() => {
@@ -92,6 +103,7 @@ export function ExpenseProvider({ children }) {
       expenses: doc.expenses,
       settings: doc.settings,
       currency: doc.settings.currency,
+      categories,
       add,
       update,
       remove,
@@ -100,7 +112,7 @@ export function ExpenseProvider({ children }) {
       replaceDoc,
       flush: flushSave,
     }),
-    [doc, loaded, add, update, remove, restore, saveSettings, replaceDoc],
+    [doc, loaded, categories, add, update, remove, restore, saveSettings, replaceDoc],
   );
 
   return <ExpenseContext.Provider value={value}>{children}</ExpenseContext.Provider>;

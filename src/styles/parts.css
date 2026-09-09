@@ -1900,3 +1900,98 @@
   font-size: 12px;
   color: var(--text-dim);
 }
+
+/* ---------- Category management ---------- */
+
+.cat-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+/* Hidden ones stay listed — you have to be able to find them to bring them back —
+   but they read as switched off. */
+.cat-row.is-hidden .cat,
+.cat-row.is-hidden .cat-row__label {
+  opacity: 0.45;
+}
+
+.cat-row__main {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.cat-row__label {
+  font-size: 14.5px;
+  font-weight: 560;
+  overflow-wrap: anywhere;
+}
+
+.cat-row__meta {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.cat-row__tools {
+  display: flex;
+  gap: var(--sp-1);
+  flex: none;
+}
+
+.icon-btn--sm {
+  width: 32px;
+  height: 32px;
+}
+
+.icon-btn:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-full);
+  background: var(--cat-color);
+  transition: scale 0.14s var(--ease-spring);
+}
+
+.swatch.is-active {
+  /* An outline rather than a border, so picking one does not resize it. */
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+  scale: 1.06;
+}
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  gap: var(--sp-2);
+}
+
+.icon-choice {
+  display: grid;
+  place-items: center;
+  height: 44px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  transition: background 0.14s, color 0.14s;
+}
+
+.icon-choice.is-active {
+  background: color-mix(in srgb, var(--cat-color) 16%, transparent);
+  color: var(--cat-color);
+}

@@ -17,6 +17,7 @@ export default function SettingsScreen({
   install,
   onToast,
   onOpenBackup,
+  onOpenCategories,
   budgetSheetOpen,
   onBudgetSheetChange,
 }) {
@@ -109,6 +110,23 @@ export default function SettingsScreen({
           </div>
         </>
       )}
+
+      {/* Categories */}
+      <h2 className="section-title">Categories</h2>
+      <div className="card setting-list">
+        <button type="button" className="setting-row" onClick={onOpenCategories}>
+          <span className="cat cat--sm" style={{ "--cat-color": "var(--c-shopping)" }}>
+            <Icon name="shopping" />
+          </span>
+          <span className="grow setting-row__text">
+            <span className="setting-row__label">Manage categories</span>
+            <span className="setting-row__hint">
+              Rename, recolour, reorder, hide — or add your own
+            </span>
+          </span>
+          <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
+        </button>
+      </div>
 
       {/* Appearance */}
       <h2 className="section-title">Appearance</h2>

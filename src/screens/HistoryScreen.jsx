@@ -6,7 +6,7 @@ import Icon from "../components/Icon.jsx";
 import InstallCard from "../components/InstallCard.jsx";
 import MonthCalendar from "../components/MonthCalendar.jsx";
 import SummaryBar from "../components/SummaryBar.jsx";
-import { EXPENSE_CATEGORIES, getCategory } from "../lib/categories.js";
+import { categoriesFor, getCategory } from "../lib/categories.js";
 import * as db from "../lib/db.js";
 import {
   currentMonthKey,
@@ -248,7 +248,7 @@ export default function HistoryScreen({
               >
                 All
               </button>
-              {EXPENSE_CATEGORIES.map((c) => (
+              {categoriesFor("expense").map((c) => (
                 <button
                   key={c.id}
                   type="button"

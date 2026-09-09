@@ -7,7 +7,7 @@ export default function CategoryIcon({ id, size = "md" }) {
   const category = getCategory(id);
   return (
     <span className={SIZES[size] ?? SIZES.md} style={{ "--cat-color": category.color }}>
-      <Icon name={category.id} />
+      <Icon name={category.icon ?? category.id} />
     </span>
   );
 }

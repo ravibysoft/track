@@ -5,6 +5,7 @@ import TabBar from "./components/TabBar.jsx";
 import useInstallPrompt from "./hooks/useInstallPrompt.js";
 import { isNative } from "./lib/storage.js";
 import BackupScreen from "./screens/BackupScreen.jsx";
+import CategoriesPage from "./screens/CategoriesPage.jsx";
 import HistoryScreen from "./screens/HistoryScreen.jsx";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import ExpenseFormPage from "./screens/ExpenseFormPage.jsx";
@@ -25,6 +26,7 @@ export default function App() {
   const [tab, setTab] = useState("home");
   const [form, setForm] = useState(null); // null | { expense: Expense | null }
   const [budgetSheet, setBudgetSheet] = useState(false);
+  const [categoriesPage, setCategoriesPage] = useState(false);
   const [toast, setToast] = useState(null);
 
   /* +1 when moving right along the tab bar, -1 when moving left. The screen slides
@@ -119,6 +121,10 @@ export default function App() {
         closeForm();
         return true;
       }
+      if (categoriesPage) {
+        setCategoriesPage(false);
+        return true;
+      }
       if (budgetSheet) {
         setBudgetSheet(false);
         return true;
@@ -131,7 +137,7 @@ export default function App() {
       }
       return false;
     };
-  }, [form, budgetSheet, tab, closeForm, changeTab]);
+  }, [form, budgetSheet, categoriesPage, tab, closeForm, changeTab]);
 
   useEffect(() => {
     if (!isNative()) return undefined;
@@ -214,6 +220,7 @@ export default function App() {
               install={install}
               onToast={notify}
               onOpenBackup={() => changeTab("backup")}
+              onOpenCategories={() => setCategoriesPage(true)}
               budgetSheetOpen={budgetSheet}
               onBudgetSheetChange={setBudgetSheet}
             />
@@ -233,6 +240,10 @@ export default function App() {
           onDelete={deleteWithUndo}
           onClose={() => closeForm(form.id)}
         />
+      )}
+
+      {categoriesPage && (
+        <CategoriesPage onToast={notify} onClose={() => setCategoriesPage(false)} />
       )}
 
       {toast && (

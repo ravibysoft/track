@@ -901,6 +901,70 @@ console.log("Sample data file");
 }
 
 console.log("");
+console.log("");
+console.log("Custom categories");
+/* The category list belongs to the document, so it has to survive a backup, keep
+   old entries readable, and never let a rename or a delete quietly rewrite what
+   an entry said. */
+{
+  const cats = await import("../src/lib/categories.js");
+  const dbm = await import("../src/lib/db.js");
+
+  const custom = {
+    id: "c-rent-x1y2",
+    label: "House rent",
+    color: "var(--c-bills)",
+    icon: "home",
+    kind: "expense",
+    hidden: false,
+  };
+
+  const list = cats.normalizeCategories([...cats.defaultCategories(), custom]);
+  check("a custom category joins the list", list.some((c) => c.id === custom.id));
+  check("the built-ins are still all there", cats.BUILT_IN_CATEGORIES.every((b) => list.some((c) => c.id === b.id)));
+
+  /* A backup written before a built-in existed must not lose it. */
+  const short = cats.normalizeCategories([{ id: "food", label: "Khana" }]);
+  check("a renamed built-in keeps its id", short.find((c) => c.id === "food")?.label === "Khana");
+  check("built-ins missing from a backup are put back", short.length === cats.BUILT_IN_CATEGORIES.length, `${short.length} categories`);
+
+  check("rubbish in the list is dropped, not rendered", cats.normalizeCategories([null, 7, { label: "no id" }]).length === cats.BUILT_IN_CATEGORIES.length);
+
+  cats.setCategoryRegistry(list);
+  check("the picker offers the custom category", cats.categoriesFor("expense").some((c) => c.id === custom.id));
+  check("it draws with its own icon and colour", cats.getCategory(custom.id).icon === "home" && cats.getCategory(custom.id).color === "var(--c-bills)");
+
+  /* Hiding is the reversible half of the pair: out of the picker, still readable. */
+  cats.setCategoryRegistry(list.map((c) => (c.id === custom.id ? { ...c, hidden: true } : c)));
+  check("hiding takes it out of the picker", !cats.categoriesFor("expense").some((c) => c.id === custom.id));
+  check("but a hidden category still renders its own name", cats.getCategory(custom.id).label === "House rent");
+
+  /* Deleting is the destructive half, and the entries outlive it. */
+  cats.setCategoryRegistry(cats.defaultCategories());
+  check("a deleted category leaves the entry's id alone", cats.getCategory(custom.id).id === custom.id);
+  check("and renders it neutrally rather than guessing", cats.getCategory(custom.id).label === "Other");
+
+  const doc = dbm.migrate({
+    settings: { categories: list },
+    expenses: [
+      { amount: 15000, categoryId: custom.id, type: "expense", date: todayKey() },
+      /* An income entry filed under a spending category is corrupt data, and
+         must not survive into the income breakdown. */
+      { amount: 500, categoryId: "food", type: "income", date: todayKey() },
+    ],
+  });
+  check("a backup carries its categories", doc.settings.categories.some((c) => c.id === custom.id));
+  check("an entry keeps its custom category through a restore", doc.expenses[0].categoryId === custom.id, doc.expenses[0].categoryId);
+  check("a category from the wrong side is corrected", doc.expenses[1].categoryId === "salary", doc.expenses[1].categoryId);
+
+  /* A restore of an ancient backup has no categories at all. */
+  const old = dbm.migrate({ expenses: [{ amount: 10, categoryId: "food", date: todayKey() }] });
+  check("a backup with no category list still works", old.settings.categories.length === cats.BUILT_IN_CATEGORIES.length);
+  check("and its entries keep their categories", old.expenses[0].categoryId === "food");
+
+  cats.setCategoryRegistry(cats.defaultCategories());
+}
+
 console.log("App shell (native feel)");
 /* jsdom has no layout, but it does run the cascade — enough to prove the shell is
    fixed and the list scrolls inside it, rather than the whole document scrolling. */
