@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import Icon from "../components/Icon.jsx";
-import { exportBackup, readBackupFile, shareBackup } from "../lib/backup.js";
+import { AUTO_KEEP, FOLDER, exportBackup, readBackupFile, shareBackup } from "../lib/backup.js";
 import * as db from "../lib/db.js";
-import { fullDayLabel } from "../lib/dates.js";
+import { dayLabel, fullDayLabel } from "../lib/dates.js";
 import { formatMoney } from "../lib/money.js";
 import { isNative } from "../lib/storage.js";
 import { useExpenses } from "../state/useExpenses.js";
@@ -13,7 +13,7 @@ import { useExpenses } from "../state/useExpenses.js";
  * buried three scrolls down.
  */
 export default function BackupScreen({ onToast }) {
-  const { doc, expenses, currency, replaceDoc } = useExpenses();
+  const { doc, expenses, settings, currency, saveSettings, replaceDoc } = useExpenses();
   const [busy, setBusy] = useState(null);
   const fileRef = useRef(null);
 
@@ -85,6 +85,45 @@ export default function BackupScreen({ onToast }) {
             <strong>{fullDayLabel(summary.since)}</strong>
           </div>
         )}
+      </div>
+
+      {/* Automatic first, because it is the one that works when you forget. */}
+      <h2 className="section-title">Automatic</h2>
+      <div className="card setting-list">
+        <div className="setting-row">
+          <span
+            className="cat cat--sm"
+            style={{ "--cat-color": settings.autoBackup ? "var(--ok)" : "var(--text-faint)" }}
+          >
+            <Icon name="calendar" />
+          </span>
+          <span className="grow setting-row__text">
+            <span className="setting-row__label">Daily copy on this device</span>
+            <span className="setting-row__hint">
+              {!isNative()
+                ? "Only in the installed app — a browser cannot save a file on its own"
+                : !settings.autoBackup
+                  ? "Off. Nothing is saved unless you export it yourself."
+                  : settings.lastAutoBackup
+                    ? `Last saved ${dayLabel(settings.lastAutoBackup).toLowerCase()} · keeps ${AUTO_KEEP} days`
+                    : `Saves once a day into Documents/${FOLDER}`}
+            </span>
+          </span>
+          <button
+            type="button"
+            className={`toggle${settings.autoBackup ? " is-on" : ""}`}
+            role="switch"
+            aria-checked={settings.autoBackup}
+            aria-label="Daily copy on this device"
+            disabled={!isNative()}
+            onClick={() => {
+              saveSettings({ autoBackup: !settings.autoBackup });
+              onToast(settings.autoBackup ? "Automatic backup off" : "Automatic backup on");
+            }}
+          >
+            <span className="toggle__knob" />
+          </button>
+        </div>
       </div>
 
       <h2 className="section-title">Save a copy</h2>

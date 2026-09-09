@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { runAutoBackup } from "../lib/backup.js";
 import { setCategoryRegistry } from "../lib/categories.js";
+import { todayKey } from "../lib/dates.js";
 import * as db from "../lib/db.js";
 import { flushSave, installFlushHooks, readDoc, scheduleSave } from "../lib/storage.js";
 import { ExpenseContext } from "./useExpenses.js";
@@ -55,6 +57,32 @@ export function ExpenseProvider({ children }) {
   }, [doc, loaded]);
 
   useEffect(() => installFlushHooks(), []);
+
+  /* One snapshot a day into the public folder, so a lost phone is not a lost
+     year. It runs after the first paint and never blocks it: the app opening is
+     more urgent than the copy, and a failed write must not keep it shut. The
+     day is recorded only once the file is actually on disk. */
+  useEffect(() => {
+    if (!loaded || !doc.settings.autoBackup) return;
+    if (doc.settings.lastAutoBackup === todayKey()) return;
+    if (doc.expenses.length === 0) return; // nothing worth a file yet
+
+    let alive = true;
+    runAutoBackup(doc, doc.settings.lastAutoBackup)
+      .then((result) => {
+        if (alive && result.written) {
+          setDoc((d) => db.setSettings(d, { lastAutoBackup: result.day }));
+        }
+      })
+      .catch(() => {
+        // No public folder on this device. The manual export still works, and
+        // saying so once a day would be nagging about something already visible
+        // on the Backup screen.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [loaded, doc]);
 
   /* A phone is not restarted daily — it is unlocked. Rules are checked again
      whenever the app comes back to the foreground, so rent posted at midnight

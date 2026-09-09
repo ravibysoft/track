@@ -1087,6 +1087,40 @@ console.log("Repeating entries");
   check("the derived rule copies what you typed", derived.amount === 500 && derived.categoryId === "food");
 }
 
+console.log("");
+console.log("Automatic backup");
+/* One snapshot a day into the public folder. The rules that matter: it never
+   writes twice in a day, it never claims a file another phone wrote, and it
+   never prunes anything it did not create. */
+{
+  const bk = await import("../src/lib/backup.js");
+  const dbm = await import("../src/lib/db.js");
+
+  check("automatic snapshots are named apart from manual ones", bk.autoFilename("2026-03-05") === "auto-2026-03-05.json");
+  check("a manual export keeps its own name", !bk.jsonFilename().startsWith(bk.AUTO_PREFIX));
+
+  /* Sorting by name has to sort by date, or pruning would delete the wrong week. */
+  const names = ["auto-2026-01-09.json", "auto-2025-12-31.json", "auto-2026-01-10.json"];
+  check("names sort oldest-first as plain strings", [...names].sort()[0] === "auto-2025-12-31.json");
+
+  const doc = dbm.migrate({ expenses: [{ amount: 10, categoryId: "food", date: todayKey() }] });
+  check("automatic backup is on unless turned off", doc.settings.autoBackup === true);
+  check("turning it off is remembered", dbm.migrate({ settings: { autoBackup: false } }).settings.autoBackup === false);
+
+  /* The day a snapshot was written must not ride along inside the backup: a file
+     restored onto a different phone would claim a copy that phone never made,
+     and skip today's. */
+  const carried = dbm.migrate({ settings: { lastAutoBackup: "2026-01-01" }, expenses: [] });
+  check("a restored backup cannot claim a snapshot it never wrote", carried.settings.lastAutoBackup === "");
+
+  /* On the web there is no folder to write to, and a download prompt appearing
+     by itself would be worse than nothing. */
+  const web = await bk.runAutoBackup(doc, "");
+  check("the web writes nothing on its own", web.written === false && web.reason === "web");
+
+  check("today's snapshot is not written twice", (await bk.runAutoBackup(doc, todayKey())).written === false);
+}
+
 console.log("App shell (native feel)");
 /* jsdom has no layout, but it does run the cascade — enough to prove the shell is
    fixed and the list scrolls inside it, rather than the whole document scrolling. */

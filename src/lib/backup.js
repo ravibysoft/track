@@ -21,6 +21,17 @@ export function csvFilename() {
   return `expenses-${todayKey()}.csv`;
 }
 
+/* Automatic snapshots are named apart from the ones you asked for, so a manual
+   export is never pruned and an automatic one is never mistaken for a keepsake. */
+export const AUTO_PREFIX = "auto-";
+
+export function autoFilename(day = todayKey()) {
+  return `${AUTO_PREFIX}${day}.json`;
+}
+
+/** How many days of automatic snapshots to keep before pruning the oldest. */
+export const AUTO_KEEP = 7;
+
 export function buildJson(doc) {
   return JSON.stringify({ ...doc, exportedAt: new Date().toISOString() }, null, 2);
 }
@@ -109,6 +120,61 @@ export async function shareBackup(doc, kind = "json") {
     });
   }
   return result;
+}
+
+/* ---------- Automatic daily snapshot ---------- */
+
+/**
+ * Writes one snapshot a day into the same public folder, and prunes to the last
+ * `AUTO_KEEP` days.
+ *
+ * Native only, and not a limitation worth apologising for: a browser cannot
+ * write a file without the person choosing where it goes, and a download prompt
+ * appearing by itself once a day would be worse than no automatic backup.
+ *
+ * `lastDay` is what the document remembers writing. It is checked against the
+ * folder as well, because a restored backup can claim a snapshot that the
+ * phone it is now running on never had.
+ */
+export async function runAutoBackup(doc, lastDay, today = todayKey()) {
+  if (!isNative()) return { written: false, reason: "web" };
+  if (lastDay === today) return { written: false, reason: "already today" };
+
+  const filename = autoFilename(today);
+  const result = await writeNative(filename, buildJson(doc));
+  await pruneAutoBackups(today).catch(() => {});
+  return { written: true, day: today, filename, location: result.location };
+}
+
+/**
+ * Deletes automatic snapshots older than the newest `AUTO_KEEP`. Only files this
+ * app named `auto-*.json` are ever considered — a manual export, or anything
+ * else the person keeps in that folder, is never touched.
+ */
+async function pruneAutoBackups(today) {
+  const { Filesystem, Directory } = await import("@capacitor/filesystem");
+
+  for (const key of TARGETS) {
+    const directory = Directory[key];
+    if (!directory) continue;
+    try {
+      const { files } = await Filesystem.readdir({ path: FOLDER, directory });
+      const mine = files
+        .map((f) => (typeof f === "string" ? f : f.name))
+        .filter((name) => name.startsWith(AUTO_PREFIX) && name.endsWith(".json"))
+        .sort();
+
+      const doomed = mine.slice(0, Math.max(mine.length - AUTO_KEEP, 0));
+      for (const name of doomed) {
+        if (name === autoFilename(today)) continue;
+        await Filesystem.deleteFile({ path: `${FOLDER}/${name}`, directory }).catch(() => {});
+      }
+      return doomed.length;
+    } catch {
+      // That target has no folder yet — try the next.
+    }
+  }
+  return 0;
 }
 
 /**

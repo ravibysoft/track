@@ -30,6 +30,9 @@ export function emptyDoc() {
       // Defaults to the white theme; System and Dark stay available in Settings.
       theme: "light",
       categories: defaultCategories(),
+      autoBackup: true,
+      // The day the last automatic snapshot was written, or "" for never.
+      lastAutoBackup: "",
     },
   };
 }
@@ -69,6 +72,11 @@ export function migrate(raw) {
       monthlyBudget: Number.isFinite(budget) && budget > 0 ? round2(budget) : 0,
       theme: ["system", "light", "dark"].includes(s.theme) ? s.theme : base.settings.theme,
       categories,
+      autoBackup: s.autoBackup !== false,
+      /* Deliberately not carried over from the file. A backup restored onto a
+         different phone would otherwise claim a snapshot that phone never wrote,
+         and skip today's. */
+      lastAutoBackup: "",
     },
   };
 }
