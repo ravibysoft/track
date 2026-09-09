@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import BudgetBar from "../components/BudgetBar.jsx";
+import CategoryIcon from "../components/CategoryIcon.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ExpenseRow from "../components/ExpenseRow.jsx";
 import Icon from "../components/Icon.jsx";
 import InstallCard from "../components/InstallCard.jsx";
 import MonthCalendar from "../components/MonthCalendar.jsx";
 import SummaryBar from "../components/SummaryBar.jsx";
-import { categoriesFor, getCategory } from "../lib/categories.js";
+import { toneFor } from "../lib/budget.js";
+import { budgetedCategories, categoriesFor, getCategory } from "../lib/categories.js";
 import * as db from "../lib/db.js";
 import {
   currentMonthKey,
@@ -18,7 +20,7 @@ import {
   shiftYear,
   yearMonths,
 } from "../lib/dates.js";
-import { formatMoney } from "../lib/money.js";
+import { formatMoney, round2 } from "../lib/money.js";
 import { useExpenses } from "../state/useExpenses.js";
 
 const TABS = [
@@ -374,7 +376,7 @@ export default function HistoryScreen({
 
         {tab === "total" && (
           <TotalTab
-            items={periodItems}
+            items={monthItems}
             summary={summary}
             budget={settings.monthlyBudget}
             currency={currency}
@@ -403,6 +405,16 @@ function TotalTab({
     return map;
   }, [items]);
 
+  /* Against the month on screen, not the year: a monthly limit compared with a
+     year of spending would read as permanently blown. */
+  const perCategory = useMemo(() => {
+    const spentBy = new Map();
+    for (const e of db.spending(items)) {
+      spentBy.set(e.categoryId, round2((spentBy.get(e.categoryId) ?? 0) + e.amount));
+    }
+    return budgetedCategories().map((c) => ({ ...c, spent: spentBy.get(c.id) ?? 0 }));
+  }, [items]);
+
   const compared =
     previousSpent > 0
       ? Math.round((summary.expense / previousSpent) * 100)
@@ -418,6 +430,43 @@ function TotalTab({
         currency={currency}
         onSetBudget={onOpenSettings}
       />
+
+      {/* One overall number hides the shape of a month: groceries can be fine
+          while eating out has quietly doubled. A category with a limit of its own
+          gets its own bar. */}
+      {perCategory.length > 0 && (
+        <div className="card card--pad stack">
+          {perCategory.map((c) => {
+            const ratio = c.budget > 0 ? c.spent / c.budget : 0;
+            const tone = toneFor(ratio);
+            return (
+              <div key={c.id} className="cap">
+                <CategoryIcon id={c.id} size="sm" />
+                <span className="grow">
+                  <span className="cap__head">
+                    <span className="cap__label">{c.label}</span>
+                    <span
+                      className="cap__figures num"
+                      style={{ color: tone.key === "ok" ? undefined : tone.color }}
+                    >
+                      {formatMoney(c.spent, currency)} / {formatMoney(c.budget, currency)}
+                    </span>
+                  </span>
+                  <span className="cap__track">
+                    <span
+                      className="cap__fill"
+                      style={{
+                        width: `${Math.min(ratio, 1) * 100}%`,
+                        background: tone.color,
+                      }}
+                    />
+                  </span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <h2 className="section-title">This period</h2>
       <div className="card card--pad stack">

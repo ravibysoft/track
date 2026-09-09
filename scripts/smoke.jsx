@@ -965,6 +965,40 @@ console.log("Custom categories");
   cats.setCategoryRegistry(cats.defaultCategories());
 }
 
+console.log("");
+console.log("Per-category budgets");
+/* A single monthly figure hides the shape of a month, so a category can carry a
+   limit of its own. It has to survive a backup, and never apply to income. */
+{
+  const cats = await import("../src/lib/categories.js");
+  const { toneFor } = await import("../src/lib/budget.js");
+  const dbm = await import("../src/lib/db.js");
+
+  const withLimits = cats.normalizeCategories(
+    cats.defaultCategories().map((c) => (c.id === "food" ? { ...c, budget: 4000 } : c)),
+  );
+  cats.setCategoryRegistry(withLimits);
+
+  check("a category can carry its own limit", cats.getCategory("food").budget === 4000);
+  check("only the ones with a limit are listed", cats.budgetedCategories().map((c) => c.id).join() === "food");
+  check("a category with no limit reads as 0", cats.getCategory("travel").budget === 0);
+
+  /* Nonsense must not become a limit — a negative or a word would render a bar
+     that fills backwards or not at all. */
+  const junk = cats.normalizeCategories([{ id: "food", budget: -50 }, { id: "travel", budget: "lots" }]);
+  check("a negative limit is refused", junk.find((c) => c.id === "food").budget === 0);
+  check("a limit that is not a number is refused", junk.find((c) => c.id === "travel").budget === 0);
+
+  check("the bar is calm with room to spare", toneFor(0.4).key === "ok");
+  check("it warns before the limit, not after", toneFor(0.85).key === "warn");
+  check("and turns red once it is passed", toneFor(1.02).key === "over");
+
+  const restored = dbm.migrate({ settings: { categories: withLimits }, expenses: [] });
+  check("limits survive a backup", restored.settings.categories.find((c) => c.id === "food").budget === 4000);
+
+  cats.setCategoryRegistry(cats.defaultCategories());
+}
+
 console.log("App shell (native feel)");
 /* jsdom has no layout, but it does run the cascade — enough to prove the shell is
    fixed and the list scrolls inside it, rather than the whole document scrolling. */

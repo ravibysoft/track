@@ -70,11 +70,21 @@ export const CATEGORY_ICONS = [
 ];
 
 export function defaultCategories() {
-  return BUILT_IN_CATEGORIES.map((c) => ({ ...c, icon: c.id, hidden: false }));
+  return BUILT_IN_CATEGORIES.map((c) => ({ ...c, icon: c.id, hidden: false, budget: 0 }));
+}
+
+/** Spending categories carrying a limit of their own, in list order. */
+export function budgetedCategories() {
+  return registry.filter((c) => c.kind === "expense" && c.budget > 0);
 }
 
 export function isBuiltIn(id) {
   return BUILT_IN_IDS.has(id);
+}
+
+function cleanBudget(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : 0;
 }
 
 function cleanLabel(value, fallback) {
@@ -112,6 +122,8 @@ export function normalizeCategories(raw) {
       icon: typeof item.icon === "string" && item.icon ? item.icon : (builtIn?.id ?? "other"),
       // A built-in is never really gone; hiding just keeps it out of the picker.
       hidden: item.hidden === true,
+      // 0 means "no limit of its own"; income categories never carry one.
+      budget: cleanBudget(item.budget),
     });
   }
 

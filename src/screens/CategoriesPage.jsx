@@ -8,6 +8,7 @@ import {
   isBuiltIn,
   newCategoryId,
 } from "../lib/categories.js";
+import { formatMoney, parseAmount } from "../lib/money.js";
 import { useExpenses } from "../state/useExpenses.js";
 
 const KINDS = [
@@ -24,7 +25,7 @@ const KINDS = [
  * screen counts the entries first and offers to hide it instead.
  */
 export default function CategoriesPage({ onClose, onToast }) {
-  const { categories, expenses, saveSettings } = useExpenses();
+  const { categories, currency, expenses, saveSettings } = useExpenses();
 
   const [kind, setKind] = useState("expense");
   const [editing, setEditing] = useState(null); // null | category | { isNew: true }
@@ -148,6 +149,7 @@ export default function CategoriesPage({ onClose, onToast }) {
                   <span className="cat-row__meta">
                     {category.hidden ? "Hidden · " : ""}
                     {count === 0 ? "No entries" : `${count} ${count === 1 ? "entry" : "entries"}`}
+                    {category.budget > 0 && ` · ${formatMoney(category.budget, currency)}/mo`}
                   </span>
                 </button>
 
@@ -191,6 +193,7 @@ export default function CategoriesPage({ onClose, onToast }) {
           key={editing.id ?? "new"}
           category={editing.isNew ? null : editing}
           kind={kind}
+          currency={currency}
           usedBy={editing.id ? (usage.get(editing.id) ?? 0) : 0}
           onSave={save}
           onToggleHidden={toggleHidden}
@@ -216,10 +219,15 @@ export default function CategoriesPage({ onClose, onToast }) {
   );
 }
 
-function CategoryEditor({ category, kind, usedBy, onSave, onToggleHidden, onDelete, onClose }) {
+function CategoryEditor({ category, kind, currency, usedBy, onSave, onToggleHidden, onDelete, onClose }) {
   const [label, setLabel] = useState(category?.label ?? "");
   const [color, setColor] = useState(category?.color ?? CATEGORY_COLORS[0]);
   const [icon, setIcon] = useState(category?.icon ?? "other");
+  const [budgetText, setBudgetText] = useState(
+    category?.budget > 0 ? String(category.budget) : "",
+  );
+
+  const isExpense = (category?.kind ?? kind) === "expense";
 
   const name = label.trim();
   const valid = name.length > 0;
@@ -242,6 +250,7 @@ function CategoryEditor({ category, kind, usedBy, onSave, onToggleHidden, onDele
               icon,
               kind: category?.kind ?? kind,
               hidden: category?.hidden ?? false,
+              budget: isExpense ? (parseAmount(budgetText) ?? 0) : 0,
             });
             close();
           }}
@@ -298,6 +307,26 @@ function CategoryEditor({ category, kind, usedBy, onSave, onToggleHidden, onDele
           ))}
         </div>
       </div>
+
+      {/* Only spending has a limit worth setting. A cap on income would be a
+          target, which is a different idea and not one this app makes. */}
+      {isExpense && (
+        <label className="field">
+          <span className="field__label">Monthly limit ({currency}) — optional</span>
+          <input
+            className="input num"
+            type="text"
+            inputMode="decimal"
+            placeholder={`No limit${category?.budget ? "" : " — e.g. 4000"}`}
+            value={budgetText}
+            maxLength={10}
+            onChange={(e) => setBudgetText(e.target.value.replace(/[^0-9.]/g, ""))}
+          />
+          <span className="field__hint">
+            Its own bar on the Total tab, alongside the month's overall budget.
+          </span>
+        </label>
+      )}
 
       {category && (
         <div className="stack">

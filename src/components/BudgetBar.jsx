@@ -1,12 +1,6 @@
+import { toneFor } from "../lib/budget.js";
 import { formatMoney } from "../lib/money.js";
 import Icon from "./Icon.jsx";
-
-/** Neutral while comfortable, amber from 80%, red once the limit is passed. */
-function toneFor(ratio) {
-  if (ratio >= 1) return { key: "over", color: "var(--danger)" };
-  if (ratio >= 0.8) return { key: "warn", color: "var(--warn)" };
-  return { key: "ok", color: "var(--accent)" };
-}
 
 export default function BudgetBar({ spent, budget, currency, onSetBudget }) {
   if (!budget || budget <= 0) {
