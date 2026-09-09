@@ -37,7 +37,9 @@ export function ExpenseProvider({ children }) {
         if (sample) next = sample;
       }
 
-      setDoc(next);
+      /* Anything the repeating rules owe is posted before the first paint, so
+         the app never shows a month that is missing its rent for a moment. */
+      setDoc(db.runRecurring(next).doc);
       loadedRef.current = true;
       setLoaded(true);
     });
@@ -53,6 +55,22 @@ export function ExpenseProvider({ children }) {
   }, [doc, loaded]);
 
   useEffect(() => installFlushHooks(), []);
+
+  /* A phone is not restarted daily — it is unlocked. Rules are checked again
+     whenever the app comes back to the foreground, so rent posted at midnight
+     appears when it is next opened rather than at the next cold start. */
+  useEffect(() => {
+    if (!loaded) return undefined;
+    const check = () => {
+      if (document.visibilityState !== "visible") return;
+      setDoc((d) => {
+        const { doc: next, added } = db.runRecurring(d);
+        return added > 0 || next !== d ? next : d;
+      });
+    };
+    document.addEventListener("visibilitychange", check);
+    return () => document.removeEventListener("visibilitychange", check);
+  }, [loaded]);
 
   /* Theme: "system" leaves it to prefers-color-scheme, the others force a value. */
   useEffect(() => {
@@ -88,6 +106,10 @@ export function ExpenseProvider({ children }) {
     [],
   );
 
+  const saveRules = useCallback((rules) => setDoc((d) => db.setRules(d, rules)), []);
+
+  const addRule = useCallback((rule) => setDoc((d) => db.addRule(d, rule)), []);
+
   const saveSettings = useCallback(
     (patch) => setDoc((d) => db.setSettings(d, patch)),
     [],
@@ -104,15 +126,30 @@ export function ExpenseProvider({ children }) {
       settings: doc.settings,
       currency: doc.settings.currency,
       categories,
+      rules: doc.recurring,
       add,
       update,
       remove,
       restore,
       saveSettings,
+      saveRules,
+      addRule,
       replaceDoc,
       flush: flushSave,
     }),
-    [doc, loaded, categories, add, update, remove, restore, saveSettings, replaceDoc],
+    [
+      doc,
+      loaded,
+      categories,
+      add,
+      update,
+      remove,
+      restore,
+      saveSettings,
+      saveRules,
+      addRule,
+      replaceDoc,
+    ],
   );
 
   return <ExpenseContext.Provider value={value}>{children}</ExpenseContext.Provider>;

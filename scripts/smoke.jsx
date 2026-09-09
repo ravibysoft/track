@@ -313,6 +313,13 @@ check("amount is a real input, so the phone keyboard opens", $(".form-row--amoun
 check("it asks for the numeric keyboard", $(".form-row--amount input")?.getAttribute("inputmode") === "decimal", `got "${$(".form-row--amount input")?.getAttribute("inputmode")}"`);
 check("it is focused on open so the keyboard is already up", document.activeElement === $(".form-row--amount input"));
 check("no in-app keypad is rendered", $$(".keypad__key").length === 0);
+
+/* Repeat is offered where the amount is already being typed, which is the only
+   moment the rent's details are in front of you. */
+check("adding offers a repeat", !!byText(".chip", "Every month") && !!byText(".chip", "Every week"));
+
+check("it starts at just once", byText(".chip", "Just once")?.getAttribute("aria-pressed") === "true");
+
 /* The date input is transparent by design, so assert the row is a real picker
    and that it advertises itself — it once looked like plain text. */
 check("the date row is a real date picker", $('.date-row input[type="date"]')?.type === "date");
@@ -382,6 +389,11 @@ await click(byText(".row", "Lunch at office"), "Lunch row");
 await settle();
 
 check("opens the edit sheet", text(".page__title") === "Edit expense", `got "${text(".page__title")}"`);
+
+/* Not offered while editing: it would be unclear whether you meant this entry or
+   every future one, and either answer would surprise somebody. */
+check("editing does not offer a repeat", !byText(".chip", "Every month"));
+
 
 check("prefills the amount", $(".form-row--amount input")?.value === "250.5", `got "${$(".form-row--amount input")?.value}"`);
 await type($(".form-row--amount input"), "300");
@@ -997,6 +1009,82 @@ console.log("Per-category budgets");
   check("limits survive a backup", restored.settings.categories.find((c) => c.id === "food").budget === 4000);
 
   cats.setCategoryRegistry(cats.defaultCategories());
+}
+
+console.log("");
+console.log("Repeating entries");
+/* A rule posts real entries on the days they fall due. The dangerous mistakes
+   are posting the rent twice, skipping a month while the phone was off, and
+   letting a month-end date drift earlier and earlier. */
+{
+  const rec = await import("../src/lib/recurring.js");
+  const dbm = await import("../src/lib/db.js");
+
+  check("a month steps to the same day next month", rec.advance("2026-03-15", "month", 15) === "2026-04-15");
+  check("a week steps seven days", rec.advance("2026-03-15", "week") === "2026-03-22");
+  check("a year boundary is not special", rec.advance("2026-12-31", "month", 31) === "2027-01-31");
+
+  /* The 31st has to survive February. Counting from the previous occurrence
+     would strand it on the 28th for the rest of its life. */
+  check("the 31st lands on the 28th in February", rec.advance("2026-01-31", "month", 31) === "2026-02-28");
+  check("and climbs back to the 31st in March", rec.advance("2026-02-28", "month", 31) === "2026-03-31");
+  check("February 29 exists in a leap year", rec.advance("2024-01-31", "month", 31) === "2024-02-29");
+
+  const rule = rec.sanitizeRule({
+    type: "expense", amount: 18000, categoryId: "bills", note: "Rent",
+    paymentMode: "upi", every: "month", anchorDay: 5, nextDate: "2026-01-05",
+  });
+  check("a well-formed rule is accepted", !!rule);
+  check("a rule with no frequency is refused", rec.sanitizeRule({ ...rule, every: "fortnight" }) === null);
+  check("a rule with no next date is refused", rec.sanitizeRule({ ...rule, nextDate: "soon" }) === null);
+  check("a rule with no amount is refused", rec.sanitizeRule({ ...rule, amount: 0 }) === null);
+
+  /* Away for three months: all three are owed, each on its own date. */
+  const behind = rec.collectDue([rule], "2026-03-20");
+  check("a missed month is not skipped", behind.due.length === 3, `${behind.due.length} posted`);
+  check("each lands on its own date", behind.due.map((d) => d.date).join() === "2026-01-05,2026-02-05,2026-03-05");
+  check("the rule moves on past what it posted", behind.rules[0].nextDate === "2026-04-05");
+
+  /* Opening the app again the same day must post nothing. */
+  const again = rec.collectDue(behind.rules, "2026-03-20");
+  check("a second look the same day posts nothing", again.due.length === 0);
+  check("and leaves the rule untouched", again.rules === behind.rules);
+
+  const paused = rec.collectDue([{ ...rule, paused: true }], "2026-06-01");
+  check("a paused rule posts nothing", paused.due.length === 0);
+  check("and does not quietly advance while paused", paused.rules[0].nextDate === rule.nextDate);
+
+  /* A corrupt date must not generate thousands of entries. */
+  const ancient = rec.collectDue([{ ...rule, nextDate: "1970-01-05" }], "2026-03-20");
+  check("a nonsense start date is capped, not run to infinity", ancient.due.length <= 120, `${ancient.due.length} posted`);
+
+  /* Through the document: posting, then restoring a backup taken before it. */
+  const doc = dbm.migrate({ recurring: [rule], expenses: [] });
+  check("rules survive a backup", doc.recurring.length === 1);
+
+  const first = dbm.runRecurring(doc, "2026-02-10");
+  check("the document gains the entries", first.added === 2, `${first.added} added`);
+  check("they are ordinary entries", first.doc.expenses.every((e) => e.amount === 18000 && e.categoryId === "bills"));
+
+  const second = dbm.runRecurring(first.doc, "2026-02-10");
+  check("running it again adds nothing", second.added === 0);
+
+  /* The real hazard: a backup written before the rent posted is restored after
+     it did. The rule would be back at January while the entries already exist. */
+  const rewound = { ...first.doc, recurring: [rule] };
+  const replayed = dbm.runRecurring(rewound, "2026-02-10");
+  check("a rewound rule does not post the rent twice", replayed.added === 0, `${replayed.added} duplicated`);
+  check("and the entries that were there are still there", replayed.doc.expenses.length === 2);
+
+  check("a monthly rule describes itself", rec.describeRule(rule) === "Every month on the 5th", rec.describeRule(rule));
+  check("ordinals are not all 'th'", rec.describeRule({ ...rule, anchorDay: 1 }).endsWith("1st") && rec.describeRule({ ...rule, anchorDay: 22 }).endsWith("22nd"));
+  check("the 11th is not the 11st", rec.describeRule({ ...rule, anchorDay: 11 }).endsWith("11th"));
+
+  /* And the rule an entry implies starts *after* that entry, not on it. */
+  const entry = dbm.buildEntry({ type: "expense", amount: 500, categoryId: "food", date: "2026-05-09" });
+  const derived = rec.ruleFromEntry(entry, "month");
+  check("the entry you just saved is not posted again", derived.nextDate === "2026-06-09", derived.nextDate);
+  check("the derived rule copies what you typed", derived.amount === 500 && derived.categoryId === "food");
 }
 
 console.log("App shell (native feel)");

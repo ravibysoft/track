@@ -2046,3 +2046,59 @@
   font-size: 11.5px;
   color: var(--text-faint);
 }
+
+/* ---------- Repeating rules ---------- */
+
+.rule {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+/* A paused rule stays listed — you have to find it to resume it — but reads off. */
+.rule.is-paused {
+  opacity: 0.55;
+}
+
+.rule__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rule__title {
+  font-size: 14.5px;
+  font-weight: 560;
+  overflow-wrap: anywhere;
+}
+
+.rule__meta,
+.rule__next {
+  font-size: 11.5px;
+  color: var(--text-faint);
+}
+
+.rule__next {
+  color: var(--text-dim);
+}
+
+.rule__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  flex: none;
+}
+
+.rule__amount {
+  font-size: 14px;
+  font-weight: 640;
+}
+
+.rule__tools {
+  display: flex;
+  gap: var(--sp-1);
+}

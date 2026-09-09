@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import CategoryIcon from "../components/CategoryIcon.jsx";
 import Icon from "../components/Icon.jsx";
 import { PAYMENT_MODES, categoriesFor, defaultCategoryFor } from "../lib/categories.js";
-import { dateWithWeekday, todayKey, toKey } from "../lib/dates.js";
+import { FREQUENCIES } from "../lib/recurring.js";
+import { dateWithWeekday, shortDayLabel, todayKey, toKey } from "../lib/dates.js";
 import { formatMoney, parseAmount } from "../lib/money.js";
 
 function yesterdayKey() {
@@ -31,6 +32,9 @@ export default function ExpenseFormPage({ expense, initialType, currency, onSave
   const [date, setDate] = useState(expense?.date ?? todayKey());
   const [note, setNote] = useState(expense?.note ?? "");
   const [paymentMode, setPaymentMode] = useState(expense?.paymentMode ?? "cash");
+  /* Only offered while adding. Editing an entry that a rule posted must change
+     that entry alone — the rule is a separate thing, with its own screen. */
+  const [repeat, setRepeat] = useState("none");
   const [closing, setClosing] = useState(false);
 
   const amountRef = useRef(null);
@@ -86,7 +90,7 @@ export default function ExpenseFormPage({ expense, initialType, currency, onSave
 
   const save = () => {
     if (!valid) return;
-    onSave(values());
+    onSave(values(), repeat === "none" ? null : repeat);
     close();
   };
 
@@ -96,7 +100,8 @@ export default function ExpenseFormPage({ expense, initialType, currency, onSave
    */
   const saveAndContinue = () => {
     if (!valid) return;
-    onSave(values());
+    onSave(values(), repeat === "none" ? null : repeat);
+    setRepeat("none");
     setAmountText("");
     setNote("");
     amountRef.current?.focus();
@@ -267,6 +272,41 @@ export default function ExpenseFormPage({ expense, initialType, currency, onSave
             ))}
           </div>
         </div>
+
+        {/* Repeat — adding only. This entry is the first occurrence; the rule
+            schedules the ones after it, and they arrive as ordinary entries. */}
+        {!editing && (
+          <div className="field" style={{ marginTop: "var(--sp-5)" }}>
+            <span className="field__label">Repeat</span>
+            <div className="hstack" style={{ gap: "var(--sp-2)", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="chip"
+                aria-pressed={repeat === "none"}
+                onClick={() => setRepeat("none")}
+              >
+                Just once
+              </button>
+              {FREQUENCIES.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  className="chip"
+                  aria-pressed={repeat === f.id}
+                  onClick={() => setRepeat(f.id)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            {repeat !== "none" && (
+              <span className="field__hint">
+                Saved again on its own from {shortDayLabel(date)} onwards. Change or stop
+                it any time in Settings &rsaquo; Repeating.
+              </span>
+            )}
+          </div>
+        )}
 
       </div>
 

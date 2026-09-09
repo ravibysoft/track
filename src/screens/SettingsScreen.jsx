@@ -18,10 +18,12 @@ export default function SettingsScreen({
   onToast,
   onOpenBackup,
   onOpenCategories,
+  onOpenRecurring,
   budgetSheetOpen,
   onBudgetSheetChange,
 }) {
-  const { expenses, settings, currency, saveSettings, replaceDoc } = useExpenses();
+  const { expenses, rules, settings, currency, saveSettings, replaceDoc } = useExpenses();
+  const ruleCount = rules.filter((r) => !r.paused).length;
   const [clearStep, setClearStep] = useState(0);
 
   const summary = useMemo(() => {
@@ -110,6 +112,25 @@ export default function SettingsScreen({
           </div>
         </>
       )}
+
+      {/* Repeating */}
+      <h2 className="section-title">Repeating</h2>
+      <div className="card setting-list">
+        <button type="button" className="setting-row" onClick={onOpenRecurring}>
+          <span className="cat cat--sm" style={{ "--cat-color": "var(--c-travel)" }}>
+            <Icon name="calendar" />
+          </span>
+          <span className="grow setting-row__text">
+            <span className="setting-row__label">Repeating entries</span>
+            <span className="setting-row__hint">
+              {ruleCount === 0
+                ? "Rent, salary, an EMI — saved for you each time"
+                : `${ruleCount} repeating ${ruleCount === 1 ? "entry" : "entries"}`}
+            </span>
+          </span>
+          <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
+        </button>
+      </div>
 
       {/* Categories */}
       <h2 className="section-title">Categories</h2>

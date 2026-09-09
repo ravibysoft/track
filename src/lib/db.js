@@ -12,6 +12,7 @@ import {
   normalizeCategories,
 } from "./categories.js";
 import { isValidKey, monthKeyOf, todayKey } from "./dates.js";
+import { collectDue, normalizeRules } from "./recurring.js";
 import { DEFAULT_CURRENCY, round2, sum } from "./money.js";
 
 export const DOC_VERSION = 1;
@@ -22,6 +23,7 @@ export function emptyDoc() {
   return {
     version: DOC_VERSION,
     expenses: [],
+    recurring: [],
     settings: {
       currency: DEFAULT_CURRENCY,
       monthlyBudget: 0,
@@ -61,6 +63,7 @@ export function migrate(raw) {
   return {
     version: DOC_VERSION,
     expenses,
+    recurring: normalizeRules(raw.recurring),
     settings: {
       currency: typeof s.currency === "string" && s.currency ? s.currency : base.settings.currency,
       monthlyBudget: Number.isFinite(budget) && budget > 0 ? round2(budget) : 0,
@@ -95,6 +98,8 @@ function sanitizeEntry(raw, categories) {
     note: typeof raw.note === "string" ? raw.note.slice(0, 200) : "",
     date,
     paymentMode: VALID_MODE.has(raw.paymentMode) ? raw.paymentMode : "cash",
+    // Set only on entries a repeating rule posted; see lib/recurring.js.
+    ...(typeof raw.ruleId === "string" && raw.ruleId ? { ruleId: raw.ruleId } : {}),
     createdAt: typeof raw.createdAt === "string" ? raw.createdAt : now,
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : now,
   };
@@ -143,6 +148,45 @@ export function restoreExpense(doc, expense, index) {
   const next = doc.expenses.slice();
   next.splice(Math.min(Math.max(index, 0), next.length), 0, expense);
   return { ...doc, expenses: next };
+}
+
+/* ---------- Repeating entries ---------- */
+
+export function setRules(doc, rules) {
+  return { ...doc, recurring: normalizeRules(rules) };
+}
+
+export function addRule(doc, rule) {
+  const clean = normalizeRules([rule]);
+  return clean.length ? { ...doc, recurring: [...doc.recurring, clean[0]] } : doc;
+}
+
+/**
+ * Posts everything the rules owe, up to and including today.
+ *
+ * An entry a rule already posted carries its ruleId and its date, so restoring a
+ * backup taken *before* a posting cannot post it twice: the pair is checked
+ * before anything is written.
+ */
+export function runRecurring(doc, today = todayKey()) {
+  if (!doc.recurring?.length) return { doc, added: 0 };
+
+  const { due, rules, changed } = collectDue(doc.recurring, today);
+  if (!due.length) return { doc: changed ? { ...doc, recurring: rules } : doc, added: 0 };
+
+  const already = new Set(
+    doc.expenses.filter((e) => e.ruleId).map((e) => `${e.ruleId}@${e.date}`),
+  );
+
+  const posted = due
+    .filter((d) => !already.has(`${d.ruleId}@${d.date}`))
+    .map((d) => buildEntry(d, doc.settings.categories))
+    .filter(Boolean);
+
+  return {
+    doc: { ...doc, recurring: rules, expenses: [...posted, ...doc.expenses] },
+    added: posted.length,
+  };
 }
 
 export function setSettings(doc, patch) {

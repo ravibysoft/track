@@ -3,9 +3,12 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Snackbar from "./components/Snackbar.jsx";
 import TabBar from "./components/TabBar.jsx";
 import useInstallPrompt from "./hooks/useInstallPrompt.js";
+import * as db from "./lib/db.js";
+import { ruleFromEntry } from "./lib/recurring.js";
 import { isNative } from "./lib/storage.js";
 import BackupScreen from "./screens/BackupScreen.jsx";
 import CategoriesPage from "./screens/CategoriesPage.jsx";
+import RecurringPage from "./screens/RecurringPage.jsx";
 import HistoryScreen from "./screens/HistoryScreen.jsx";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import ExpenseFormPage from "./screens/ExpenseFormPage.jsx";
@@ -20,13 +23,14 @@ const StatsScreen = lazy(() => import("./screens/StatsScreen.jsx"));
 const TAB_ORDER = ["home", "trans", "stats", "backup", "settings"];
 
 export default function App() {
-  const { loaded, currency, add, update, remove, restore, settings } = useExpenses();
+  const { loaded, currency, add, addRule, update, remove, restore, settings } = useExpenses();
   const install = useInstallPrompt();
 
   const [tab, setTab] = useState("home");
   const [form, setForm] = useState(null); // null | { expense: Expense | null }
   const [budgetSheet, setBudgetSheet] = useState(false);
   const [categoriesPage, setCategoriesPage] = useState(false);
+  const [recurringPage, setRecurringPage] = useState(false);
   const [toast, setToast] = useState(null);
 
   /* +1 when moving right along the tab bar, -1 when moving left. The screen slides
@@ -78,16 +82,32 @@ export default function App() {
   );
 
   const handleSave = useCallback(
-    (values) => {
+    (values, repeat) => {
       if (form?.expense) {
         update(form.expense.id, values);
         notify("Expense updated");
+        return;
+      }
+
+      add(values);
+      if (!repeat) {
+        notify("Expense added");
+        return;
+      }
+
+      /* The entry just saved is occurrence one; the rule schedules the rest. It
+         is built from the sanitised entry rather than the raw form values, so a
+         rule can never carry an amount or a category the entry itself refused. */
+      const entry = db.buildEntry(values, settings.categories);
+      const rule = entry && ruleFromEntry(entry, repeat);
+      if (rule) {
+        addRule(rule);
+        notify(repeat === "week" ? "Saved, and repeating weekly" : "Saved, and repeating monthly");
       } else {
-        add(values);
         notify("Expense added");
       }
     },
-    [form, add, update, notify],
+    [form, add, update, addRule, notify, settings.categories],
   );
 
   /* A new tab always opens at the top. Without this the body keeps the previous
@@ -125,6 +145,10 @@ export default function App() {
         setCategoriesPage(false);
         return true;
       }
+      if (recurringPage) {
+        setRecurringPage(false);
+        return true;
+      }
       if (budgetSheet) {
         setBudgetSheet(false);
         return true;
@@ -137,7 +161,7 @@ export default function App() {
       }
       return false;
     };
-  }, [form, budgetSheet, categoriesPage, tab, closeForm, changeTab]);
+  }, [form, budgetSheet, categoriesPage, recurringPage, tab, closeForm, changeTab]);
 
   useEffect(() => {
     if (!isNative()) return undefined;
@@ -221,6 +245,7 @@ export default function App() {
               onToast={notify}
               onOpenBackup={() => changeTab("backup")}
               onOpenCategories={() => setCategoriesPage(true)}
+              onOpenRecurring={() => setRecurringPage(true)}
               budgetSheetOpen={budgetSheet}
               onBudgetSheetChange={setBudgetSheet}
             />
@@ -244,6 +269,10 @@ export default function App() {
 
       {categoriesPage && (
         <CategoriesPage onToast={notify} onClose={() => setCategoriesPage(false)} />
+      )}
+
+      {recurringPage && (
+        <RecurringPage onToast={notify} onClose={() => setRecurringPage(false)} />
       )}
 
       {toast && (
