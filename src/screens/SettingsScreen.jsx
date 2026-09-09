@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import Icon from "../components/Icon.jsx";
 import Sheet from "../components/Sheet.jsx";
+import { APP_NAME, cleanName } from "../lib/db.js";
 import * as db from "../lib/db.js";
 import { fullDayLabel } from "../lib/dates.js";
 import { formatMoney, parseAmount } from "../lib/money.js";
@@ -25,6 +26,7 @@ export default function SettingsScreen({
   const { expenses, rules, settings, currency, saveSettings, replaceDoc } = useExpenses();
   const ruleCount = rules.filter((r) => !r.paused).length;
   const [clearStep, setClearStep] = useState(0);
+  const [nameSheet, setNameSheet] = useState(false);
 
   const summary = useMemo(() => {
     const sorted = db.sortExpenses(expenses);
@@ -44,6 +46,22 @@ export default function SettingsScreen({
           <p className="appbar__sub">Budget, backup and data</p>
         </div>
       </header>
+
+      {/* Who the app greets */}
+      <h2 className="section-title">You</h2>
+      <div className="card setting-list">
+        <button type="button" className="setting-row" onClick={() => setNameSheet(true)}>
+          <span className="cat cat--sm" style={{ "--cat-color": "var(--accent)" }}>
+            <Icon name="home" />
+          </span>
+          <span className="grow setting-row__text">
+            <span className="setting-row__label">Your name</span>
+            <span className="setting-row__hint">Home greets you by this</span>
+          </span>
+          <span className="setting-row__value">{settings.name}</span>
+          <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
+        </button>
+      </div>
 
       {/* Budget */}
       <h2 className="section-title">Budget</h2>
@@ -234,6 +252,17 @@ export default function SettingsScreen({
         Roz Kharcha · v1.0
       </p>
 
+      {nameSheet && (
+        <NameSheet
+          current={settings.name}
+          onClose={() => setNameSheet(false)}
+          onSave={(value) => {
+            saveSettings({ name: value });
+            onToast(`Home will say ${value}`);
+          }}
+        />
+      )}
+
       {budgetSheetOpen && (
         <BudgetSheet
           current={settings.monthlyBudget}
@@ -270,6 +299,48 @@ export default function SettingsScreen({
         />
       )}
     </div>
+  );
+}
+
+function NameSheet({ current, onSave, onClose }) {
+  const [text, setText] = useState(current === APP_NAME ? "" : current);
+  const value = cleanName(text) ?? APP_NAME;
+
+  return (
+    <Sheet
+      title="Your name"
+      onClose={onClose}
+      footer={({ close }) => (
+        <button
+          type="button"
+          className="btn btn--primary btn--lg btn--block"
+          onClick={() => {
+            onSave(value);
+            close();
+          }}
+        >
+          Save
+        </button>
+      )}
+    >
+      <p className="sheet__note">
+        Home says &ldquo;Good morning&rdquo; and then this. Leave it empty to go back
+        to {APP_NAME}.
+      </p>
+      <label className="field">
+        <span className="field__label">Name</span>
+        <input
+          className="input"
+          type="text"
+          value={text}
+          maxLength={24}
+          autoFocus
+          enterKeyHint="done"
+          placeholder={APP_NAME}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </label>
+    </Sheet>
   );
 }
 

@@ -804,6 +804,74 @@ console.log("Row overflow guard");
 
 }
 
+console.log("");
+
+console.log("Home button labels");
+
+/* The two Home buttons share one row, so each label has half a phone. "Add
+   expense" once broke after "Add" and read as two buttons stacked. The labels
+   must not wrap; the type size gives way instead. */
+{
+  const { readFileSync } = await import("node:fs");
+
+  const sheet = readFileSync("src/styles/parts.css", "utf8").replace(/@import[^;]+;/g, "");
+
+  const btnDom = new JSDOM(
+    `<!doctype html><html><head><style>${sheet}</style></head><body>` +
+      `<div class="home__actions">` +
+      `<button class="btn btn--primary btn--lg grow">Add expense</button>` +
+      `<button class="btn btn--ghost btn--lg grow">Add income</button>` +
+      `</div>` +
+      `<button class="btn btn--ghost btn--block">A much longer label elsewhere</button>` +
+      `</body></html>`,
+  );
+
+  const btnCss = (sel, prop) =>
+    btnDom.window
+      .getComputedStyle(btnDom.window.document.querySelector(sel))
+      .getPropertyValue(prop);
+
+  check("the Home buttons never wrap their label", btnCss(".home__actions .btn", "white-space") === "nowrap", `got "${btnCss(".home__actions .btn", "white-space")}"`);
+
+  /* Scoped on purpose. A blanket nowrap would push a long label out of a
+     full-width button instead of letting it wrap, which is worse. */
+  check("wrapping is still allowed elsewhere", btnCss(".btn--block", "white-space") !== "nowrap", `got "${btnCss(".btn--block", "white-space")}"`);
+
+}
+
+console.log("");
+
+console.log("Your name");
+
+/* Home greets you by a name you can change. It has to survive a reload and a
+   backup, and never leave the greeting trailing an empty space. */
+{
+  const dbm = await import("../src/lib/db.js");
+
+  check("it starts as the app's own name", dbm.emptyDoc().settings.name === dbm.APP_NAME, dbm.emptyDoc().settings.name);
+
+  check("a name is trimmed", dbm.cleanName("  Ravi  ") === "Ravi");
+
+  check("runs of spaces collapse", dbm.cleanName("Ravi   Kumar") === "Ravi Kumar", dbm.cleanName("Ravi   Kumar"));
+
+  check("a very long name is capped", dbm.cleanName("R".repeat(200)).length === 24);
+
+  /* Empty is not a name — the greeting would read "Good morning" and stop. */
+  check("blank is refused", dbm.cleanName("   ") === null);
+
+  check("so is a non-string", dbm.cleanName(42) === null && dbm.cleanName(undefined) === null);
+
+  check("a saved name survives a reload", dbm.migrate({ settings: { name: "Ravi" } }).settings.name === "Ravi");
+
+  check("a blank one falls back rather than greeting nobody", dbm.migrate({ settings: { name: "  " } }).settings.name === dbm.APP_NAME);
+
+  check("an older backup with no name still opens", dbm.migrate({ expenses: [] }).settings.name === dbm.APP_NAME);
+
+  const { buildJson: toJson } = await import("../src/lib/backup.js");
+
+  check("the name travels in a backup", JSON.parse(toJson(dbm.migrate({ settings: { name: "Ravi" } }))).settings.name === "Ravi");
+}
+
 
 console.log("");
 console.log("Income entries");

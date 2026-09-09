@@ -559,6 +559,13 @@
   font-size: 14px;
   font-weight: 650;
   color: var(--text-dim);
+  /* Holds a name someone typed, so it has to give way rather than push the
+     chevron off the row. */
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sheet__note {
@@ -1613,6 +1620,16 @@
   display: flex;
   gap: var(--sp-3);
   margin: var(--sp-4) 0 var(--sp-2);
+}
+
+/* Two buttons share the row, so each label lives in half a phone. "Add expense"
+   breaking after "Add" reads as two separate buttons stacked, so the label never
+   wraps — and the size and padding give way instead, since these two stretch to
+   fill the row and their padding does not decide how wide they are. */
+.home__actions .btn {
+  padding-inline: var(--sp-2);
+  white-space: nowrap;
+  font-size: clamp(14px, 4vw, 16px);
 }
 
 .home__section {

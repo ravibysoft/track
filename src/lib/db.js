@@ -17,6 +17,8 @@ import { DEFAULT_CURRENCY, round2, sum } from "./money.js";
 
 export const DOC_VERSION = 1;
 
+export const APP_NAME = "Roz Kharcha";
+
 const VALID_MODE = new Set(["cash", "upi", "card"]);
 
 export function emptyDoc() {
@@ -25,6 +27,9 @@ export function emptyDoc() {
     expenses: [],
     recurring: [],
     settings: {
+      // Greets you by this on Home. Defaults to the app's own name, so it reads
+      // as intended until someone puts their own there.
+      name: APP_NAME,
       currency: DEFAULT_CURRENCY,
       monthlyBudget: 0,
       // Defaults to the white theme; System and Dark stay available in Settings.
@@ -68,6 +73,7 @@ export function migrate(raw) {
     expenses,
     recurring: normalizeRules(raw.recurring),
     settings: {
+      name: cleanName(s.name) ?? base.settings.name,
       currency: typeof s.currency === "string" && s.currency ? s.currency : base.settings.currency,
       monthlyBudget: Number.isFinite(budget) && budget > 0 ? round2(budget) : 0,
       theme: ["system", "light", "dark"].includes(s.theme) ? s.theme : base.settings.theme,
@@ -79,6 +85,13 @@ export function migrate(raw) {
       lastAutoBackup: "",
     },
   };
+}
+
+/** Trimmed and capped, or null when there is nothing usable to greet you by. */
+export function cleanName(value) {
+  if (typeof value !== "string") return null;
+  const text = value.trim().replace(/\s+/g, " ").slice(0, 24);
+  return text || null;
 }
 
 function sanitizeEntry(raw, categories) {

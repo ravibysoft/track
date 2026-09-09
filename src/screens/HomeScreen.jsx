@@ -53,7 +53,7 @@ export default function HomeScreen({ install, onAdd, onAddIncome, onEdit, onDele
         <span className="home__badge">{currency}</span>
         <span className="grow">
           <span className="home__greeting">{greeting}</span>
-          <span className="home__app">Roz Kharcha</span>
+          <span className="home__app">{settings.name}</span>
         </span>
         <button type="button" className="icon-btn" onClick={onOpenSettings} aria-label="Settings">
           <Icon name="settings" />
