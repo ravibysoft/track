@@ -427,6 +427,12 @@ check("edited amount shows in the list", !!byText(".row__amount", "₹300"));
 
 check("total recalculates", $$(".balance__statValue")[1]?.textContent.trim() === "₹1,25,700", `got "${$$(".balance__statValue")[1]?.textContent.trim()}"`);
 
+/* Only expenses logged, no income, no budget. Showing income − expense here would
+   put a large minus number under the word "balance" — the headline has to mean
+   something for a user who never records income. */
+check("expenses-only never shows a negative balance", !text(".balance__value").includes("-") && !text(".balance__value").includes("−"), `got "${text(".balance__value")}"`);
+check("expenses-only headline says what the number is", text(".balance__label") === "Spent this month", `got "${text(".balance__label")}"`);
+
 
 
 console.log("\nDelete + undo");
@@ -824,16 +830,27 @@ console.log("Sample data file");
 {
   const { readFileSync } = await import("node:fs");
   const dbm = await import("../src/lib/db.js");
+  const { shiftSampleToToday } = await import("../src/lib/devSample.js");
   const rawSample = JSON.parse(readFileSync("samples/sample-data.json", "utf8"));
   const migrated = dbm.migrate(rawSample);
+  /* The loader slides the file forward before seeding it, so what the app sees is
+     the shifted doc — that, not the file on disk, is what these checks must hold
+     for. Asserting on the raw file instead would fail a day after generating it. */
+  const seeded = shiftSampleToToday(migrated);
 
   check("sample file parses as a backup", Array.isArray(rawSample.expenses) && rawSample.expenses.length > 100, `${rawSample.expenses.length} entries`);
   check("no entry is dropped by validation", migrated.expenses.length === rawSample.expenses.length, `${rawSample.expenses.length} in, ${migrated.expenses.length} out`);
   check("it carries both income and spending", dbm.earned(migrated.expenses) > 0 && dbm.spent(migrated.expenses) > 0);
   check("every category survives intact", migrated.expenses.every((e, i) => e.categoryId === rawSample.expenses[i].categoryId));
-  check("it spans more than one month", new Set(migrated.expenses.map((e) => e.date.slice(0, 7))).size >= 3);
-  check("it reaches today, so Daily is never empty", migrated.expenses.some((e) => e.date === todayKey()));
-  check("a budget is set, so the Total tab has a bar", migrated.settings.monthlyBudget > 0);
+  check("it spans more than one month", new Set(seeded.expenses.map((e) => e.date.slice(0, 7))).size >= 3);
+  check("shifting keeps every entry", seeded.expenses.length === migrated.expenses.length);
+  check("shifting preserves the gaps between entries", (() => {
+    const gap = (list) => list.map((e) => e.date).sort().map((d, i, a) => (i ? Date.parse(d) - Date.parse(a[i - 1]) : 0));
+    return String(gap(seeded.expenses)) === String(gap(migrated.expenses));
+  })());
+  check("it reaches today, so Daily is never empty", seeded.expenses.some((e) => e.date === todayKey()));
+  check("nothing lands in the future", seeded.expenses.every((e) => e.date <= todayKey()));
+  check("a budget is set, so the Total tab has a bar", seeded.settings.monthlyBudget > 0);
 }
 
 console.log("");
@@ -862,6 +879,57 @@ console.log("App shell (native feel)");
   check("only the list area of a split screen scrolls", css(".screen__scroll", "overflow-y") === "auto");
   check("the pinned header does not scroll", css(".screen__fixed", "flex-grow") === "0");
 }
+console.log("");
+console.log("Crash recovery");
+/* Without a boundary, one throwing screen unmounts the whole tree and the app is
+   a blank white page with no tab bar — unrecoverable on a phone. This proves the
+   fallback renders instead, and that it offers a way out. */
+{
+  const ErrorBoundary = (await import("../src/components/ErrorBoundary.jsx")).default;
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const boundaryRoot = createRoot(host);
+
+  let explode = true;
+  const Maybe = () => {
+    if (explode) throw new Error("kaboom");
+    return createElement("p", { id: "fine" }, "ok");
+  };
+
+  // React logs the caught error; silence it so a passing run stays readable.
+  const realError = console.error;
+  console.error = () => {};
+  await act(async () => {
+    boundaryRoot.render(
+      createElement(ErrorBoundary, { scope: "screen" }, createElement(Maybe)),
+    );
+  });
+  console.error = realError;
+
+  const fallback = host.querySelector(".crash");
+  check("a throwing screen does not blank the app", !!fallback);
+  check("the fallback says the data is safe", /safe/i.test(fallback?.textContent ?? ""));
+  check(
+    "it offers a way out",
+    [...host.querySelectorAll("button")].some((b) => /reload/i.test(b.textContent)),
+  );
+  check("the error message is shown for diagnosis", /kaboom/.test(host.querySelector(".crash__detail")?.textContent ?? ""));
+
+  /* "Try again" has to actually re-render the children, not just repaint the same
+     fallback — otherwise a transient failure would strand the screen for good. A
+     boundary that never renders children at all would pass the checks above. */
+  explode = false;
+  await click(
+    [...host.querySelectorAll("button")].find((b) => /try again/i.test(b.textContent)),
+    "Try again",
+  );
+  check("Try again re-renders the screen once it can work", !!host.querySelector("#fine"));
+  check("the fallback goes away with it", !host.querySelector(".crash"));
+
+  await act(async () => boundaryRoot.unmount());
+  host.remove();
+}
+
 console.log(`\n${checks - failures}/${checks} checks passed\n`);
 
 process.exit(failures === 0 ? 0 : 1);

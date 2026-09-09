@@ -1,12 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import Icon from "../components/Icon.jsx";
 import Sheet from "../components/Sheet.jsx";
-import { exportBackup, readBackupFile, shareBackup } from "../lib/backup.js";
 import * as db from "../lib/db.js";
 import { fullDayLabel } from "../lib/dates.js";
 import { formatMoney, parseAmount } from "../lib/money.js";
-import { isNative } from "../lib/storage.js";
 import { useExpenses } from "../state/useExpenses.js";
 
 const THEMES = [
@@ -15,11 +13,15 @@ const THEMES = [
   { id: "dark", label: "Dark", icon: "moon" },
 ];
 
-export default function SettingsScreen({ install, onToast, budgetSheetOpen, onBudgetSheetChange }) {
-  const { doc, expenses, settings, currency, saveSettings, replaceDoc } = useExpenses();
+export default function SettingsScreen({
+  install,
+  onToast,
+  onOpenBackup,
+  budgetSheetOpen,
+  onBudgetSheetChange,
+}) {
+  const { expenses, settings, currency, saveSettings, replaceDoc } = useExpenses();
   const [clearStep, setClearStep] = useState(0);
-  const [busy, setBusy] = useState(null);
-  const fileRef = useRef(null);
 
   const summary = useMemo(() => {
     const sorted = db.sortExpenses(expenses);
@@ -31,35 +33,8 @@ export default function SettingsScreen({ install, onToast, budgetSheetOpen, onBu
     };
   }, [expenses]);
 
-  const run = async (key, task, done) => {
-    setBusy(key);
-    try {
-      const result = await task();
-      onToast(done(result));
-    } catch (err) {
-      onToast(err?.message || "Something went wrong");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const handleImport = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = ""; // let the same file be picked again later
-    if (!file) return;
-    await run(
-      "import",
-      async () => {
-        const parsed = await readBackupFile(file);
-        replaceDoc(parsed);
-        return parsed;
-      },
-      (parsed) => `Restored ${parsed.expenses.length} expenses`,
-    );
-  };
-
   return (
-    <div className="screen screen--no-fab">
+    <div className="screen">
       <header className="appbar">
         <div>
           <h1 className="appbar__title">Settings</h1>
@@ -160,108 +135,22 @@ export default function SettingsScreen({ install, onToast, budgetSheetOpen, onBu
         </div>
       </div>
 
-      {/* Backup */}
+      {/* Backup has its own tab. This is a signpost to it, not a second copy —
+          two implementations of Export/Restore means two places to fix a bug. */}
       <h2 className="section-title">Backup</h2>
       <div className="card setting-list">
-        <button
-          type="button"
-          className="setting-row"
-          disabled={busy === "json" || summary.count === 0}
-          onClick={() =>
-            run(
-              "json",
-              () => exportBackup(doc, "json"),
-              (r) => `Saved ${r.filename} to ${r.location}`,
-            )
-          }
-        >
+        <button type="button" className="setting-row" onClick={onOpenBackup}>
           <span className="cat cat--sm" style={{ "--cat-color": "var(--c-groceries)" }}>
             <Icon name="download" />
           </span>
           <span className="grow setting-row__text">
-            <span className="setting-row__label">Export backup (.json)</span>
+            <span className="setting-row__label">Backup &amp; restore</span>
             <span className="setting-row__hint">
-              {isNative() ? "Saved into Documents/ExpenseTracker" : "Downloads to this computer"}
+              Export .json or .csv, share it, or restore from a file
             </span>
           </span>
           <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
         </button>
-
-        <div className="list__sep" />
-
-        <button
-          type="button"
-          className="setting-row"
-          disabled={busy === "csv" || summary.count === 0}
-          onClick={() =>
-            run(
-              "csv",
-              () => exportBackup(doc, "csv"),
-              (r) => `Saved ${r.filename} to ${r.location}`,
-            )
-          }
-        >
-          <span className="cat cat--sm" style={{ "--cat-color": "var(--c-travel)" }}>
-            <Icon name="history" />
-          </span>
-          <span className="grow setting-row__text">
-            <span className="setting-row__label">Export for Excel (.csv)</span>
-            <span className="setting-row__hint">Opens in Excel or Google Sheets</span>
-          </span>
-          <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
-        </button>
-
-        {isNative() && (
-          <>
-            <div className="list__sep" />
-            <button
-              type="button"
-              className="setting-row"
-              disabled={busy === "share" || summary.count === 0}
-              onClick={() =>
-                run(
-                  "share",
-                  () => shareBackup(doc, "json"),
-                  () => "Backup ready to share",
-                )
-              }
-            >
-              <span className="cat cat--sm" style={{ "--cat-color": "var(--c-entertainment)" }}>
-                <Icon name="share" />
-              </span>
-              <span className="grow setting-row__text">
-                <span className="setting-row__label">Share backup</span>
-                <span className="setting-row__hint">Send to WhatsApp, Drive or email</span>
-              </span>
-              <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
-            </button>
-          </>
-        )}
-
-        <div className="list__sep" />
-
-        <button
-          type="button"
-          className="setting-row"
-          disabled={busy === "import"}
-          onClick={() => fileRef.current?.click()}
-        >
-          <span className="cat cat--sm" style={{ "--cat-color": "var(--c-bills)" }}>
-            <Icon name="upload" />
-          </span>
-          <span className="grow setting-row__text">
-            <span className="setting-row__label">Restore from backup</span>
-            <span className="setting-row__hint">Replaces everything with the .json file</span>
-          </span>
-          <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={handleImport}
-        />
       </div>
 
       {/* Data */}

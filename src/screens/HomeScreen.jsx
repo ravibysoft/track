@@ -32,6 +32,21 @@ export default function HomeScreen({ install, onAdd, onAddIncome, onEdit, onDele
   const usedShare = budget > 0 ? Math.min(stats.expense / budget, 1) : 0;
   const overBudget = budget > 0 && stats.expense > budget;
 
+  /* The big number has to mean something for the way *this* user logs. Once income
+     is recorded, income − expense is a real balance. But most people only log what
+     they spend, and for them that subtraction is just the month's spending with a
+     minus in front — "Available balance −₹4,170" reads like the account is empty.
+     So with no income the card falls back to what is actually useful: what is left
+     of the budget, or, with no budget either, plain spending. */
+  const headline =
+    stats.income > 0
+      ? { label: "Available balance", value: stats.net }
+      : budget > 0
+        ? overBudget
+          ? { label: "Over budget", value: stats.expense - budget }
+          : { label: "Left to spend", value: budget - stats.expense }
+        : { label: "Spent this month", value: stats.expense };
+
   return (
     <div className="screen home">
       <header className="home__bar">
@@ -63,8 +78,10 @@ export default function HomeScreen({ install, onAdd, onAddIncome, onEdit, onDele
           </button>
         </div>
 
-        <span className="balance__label">Available balance</span>
-        <span className="balance__value num">{formatMoney(stats.net, currency)}</span>
+        <span className="balance__label">{headline.label}</span>
+        <span className={`balance__value num${overBudget && stats.income === 0 ? " is-over" : ""}`}>
+          {formatMoney(headline.value, currency)}
+        </span>
 
         <div className="balance__split">
           <span className="balance__stat">

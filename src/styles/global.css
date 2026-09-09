@@ -121,9 +121,9 @@ textarea {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding: 0 var(--sp-4);
-  /* Clears the tab bar *and* the 56px FAB that floats above it, so the last row
-     in a list is never hidden behind either. */
-  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 88px);
+  /* Clears the tab bar plus the 18px that the raised Add circle rises above it,
+     so the last row in a list is never hidden behind either. */
+  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-6));
 }
 
 .screen::-webkit-scrollbar {
@@ -156,10 +156,6 @@ textarea {
 
 .screen__scroll::-webkit-scrollbar {
   display: none;
-}
-
-.screen--no-fab {
-  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-6));
 }
 
 /* The screen host carries the tab transition. Only transform and opacity are
@@ -525,40 +521,6 @@ textarea {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-faint);
-}
-
-/* ---------- FAB ---------- */
-.fab {
-  position: fixed;
-  z-index: 30;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-4));
-  right: max(var(--sp-4), calc(50vw - var(--app-w) / 2 + var(--sp-4)));
-  width: 56px;
-  height: 56px;
-  border-radius: var(--r-full);
-  background: var(--accent);
-  color: var(--on-accent);
-  display: grid;
-  place-items: center;
-  box-shadow: var(--shadow-fab);
-  transition: transform 0.18s var(--ease-spring);
-  animation: fab-in 0.32s var(--ease-spring) both;
-}
-
-.fab:active {
-  transform: scale(0.9);
-}
-
-.fab svg {
-  width: 26px;
-  height: 26px;
-}
-
-@keyframes fab-in {
-  from {
-    opacity: 0;
-    transform: scale(0.4);
-  }
 }
 
 /* ---------- Tab bar ---------- */

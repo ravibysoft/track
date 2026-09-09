@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import Snackbar from "./components/Snackbar.jsx";
 import TabBar from "./components/TabBar.jsx";
 import useInstallPrompt from "./hooks/useInstallPrompt.js";
@@ -93,6 +94,22 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [tab]);
 
+  /* Long-pressing the installed icon offers "Add expense", which launches the app
+     at /?action=add (declared as a manifest shortcut). Honour it, then strip the
+     parameter so a later reload doesn't pop the form open again. */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action") !== "add") return;
+    params.delete("action");
+    const query = params.toString();
+    window.history.replaceState(
+      {},
+      "",
+      window.location.pathname + (query ? `?${query}` : "") + window.location.hash,
+    );
+    openAdd("expense");
+  }, [openAdd]);
+
   /* Android hardware Back: close what's on top, then fall back to Trans., then exit.
      The handler lives in a ref so the native listener is registered only once. */
   const backRef = useRef(() => false);
@@ -160,43 +177,48 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Keyed on the tab so switching remounts the host and replays its slide-in. */}
+      {/* Keyed on the tab so switching remounts the host and replays its slide-in.
+          That remount also resets the boundary, so a screen that failed once gets
+          a clean attempt the next time you come back to it. */}
       <div className="screen-host" key={tab} data-direction={direction}>
-        {tab === "home" && (
-          <HomeScreen
-            install={install}
-            onAdd={() => openAdd("expense")}
-            onAddIncome={() => openAdd("income")}
-            onEdit={openEdit}
-            onDelete={deleteWithUndo}
-            onSeeAll={() => changeTab("trans")}
-            onOpenSettings={() => changeTab("settings")}
-          />
-        )}
-        {tab === "trans" && (
-          <HistoryScreen
-            onEdit={openEdit}
-            onDelete={deleteWithUndo}
-            onOpenSettings={() => {
-              changeTab("settings");
-              setBudgetSheet(true);
-            }}
-          />
-        )}
-        {tab === "backup" && <BackupScreen onToast={notify} />}
-        {tab === "stats" && (
-          <Suspense fallback={<div className="screen"><div className="boot" /></div>}>
-            <StatsScreen />
-          </Suspense>
-        )}
-        {tab === "settings" && (
-          <SettingsScreen
-            install={install}
-            onToast={notify}
-            budgetSheetOpen={budgetSheet}
-            onBudgetSheetChange={setBudgetSheet}
-          />
-        )}
+        <ErrorBoundary scope="screen">
+          {tab === "home" && (
+            <HomeScreen
+              install={install}
+              onAdd={() => openAdd("expense")}
+              onAddIncome={() => openAdd("income")}
+              onEdit={openEdit}
+              onDelete={deleteWithUndo}
+              onSeeAll={() => changeTab("trans")}
+              onOpenSettings={() => changeTab("settings")}
+            />
+          )}
+          {tab === "trans" && (
+            <HistoryScreen
+              onEdit={openEdit}
+              onDelete={deleteWithUndo}
+              onOpenSettings={() => {
+                changeTab("settings");
+                setBudgetSheet(true);
+              }}
+            />
+          )}
+          {tab === "backup" && <BackupScreen onToast={notify} />}
+          {tab === "stats" && (
+            <Suspense fallback={<div className="screen"><div className="boot" /></div>}>
+              <StatsScreen />
+            </Suspense>
+          )}
+          {tab === "settings" && (
+            <SettingsScreen
+              install={install}
+              onToast={notify}
+              onOpenBackup={() => changeTab("backup")}
+              budgetSheetOpen={budgetSheet}
+              onBudgetSheetChange={setBudgetSheet}
+            />
+          )}
+        </ErrorBoundary>
       </div>
 
       <TabBar active={tab} onChange={changeTab} onAdd={() => openAdd("expense")} />
