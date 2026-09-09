@@ -419,6 +419,7 @@ textarea {
 
 /* ---------- Expense row ---------- */
 .row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--sp-3);
@@ -431,6 +432,29 @@ textarea {
 
 .row:active {
   background: var(--surface-2);
+}
+
+/* Holding a row deletes it. The fill runs for exactly as long as the hold needs,
+   so the gesture announces itself instead of firing out of nowhere — and letting
+   go before it completes cancels both the fill and the delete. */
+.row.is-holding::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Sits over the row rather than behind it: --danger-soft is a 10% wash, so the
+     text still reads through, and `z-index: -1` would put it behind the row's own
+     :active background instead. */
+  pointer-events: none;
+  border-radius: inherit;
+  background: var(--danger-soft);
+  transform-origin: left center;
+  animation: row-hold 500ms linear both;
+}
+
+@keyframes row-hold {
+  from {
+    scale: 0 1;
+  }
 }
 
 .row__body {

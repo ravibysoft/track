@@ -401,6 +401,38 @@ check("expenses-only headline says what the number is", text(".balance__label") 
 
 
 
+console.log("\nHold to delete");
+
+/* Holding a row deletes it. A gesture that fires with no warning is a trap, so
+   the row has to show the hold building — and cancel cleanly when you let go. */
+{
+  const row = $$(".row")[0];
+  const press = (type, y = 10) =>
+    act(async () => {
+      row.dispatchEvent(new window.MouseEvent(type, { bubbles: true, clientX: 10, clientY: y }));
+    });
+
+  await press("pointerdown");
+
+  check("holding a row shows it filling", row.className.includes("is-holding"));
+
+  await press("pointerup");
+
+  check("letting go cancels the fill", !row.className.includes("is-holding"));
+
+  /* A finger that travels is scrolling the list, not holding a row. */
+  await press("pointerdown");
+
+  await press("pointermove", 60);
+
+  check("scrolling off the row cancels it too", !row.className.includes("is-holding"));
+
+  await press("pointerup");
+
+  check("and nothing was deleted by any of that", $$(".row").length === 2, `${$$(".row").length} rows`);
+}
+
+
 console.log("\nDelete + undo");
 
 await click(byText(".row", "Lunch at office"), "Lunch row");

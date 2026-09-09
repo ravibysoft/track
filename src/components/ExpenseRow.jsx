@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { getCategory, getPaymentLabel } from "../lib/categories.js";
 import { formatMoney } from "../lib/money.js";
 import CategoryIcon from "./CategoryIcon.jsx";
@@ -13,6 +13,9 @@ export default function ExpenseRow({ expense, currency, onEdit, onDelete, traili
   const timer = useRef(null);
   const longPressed = useRef(false);
   const origin = useRef({ x: 0, y: 0 });
+  /* A hidden gesture that deletes without warning is a trap. Holding paints the
+     row red as it fills, so you can see what is about to happen — and let go. */
+  const [holding, setHolding] = useState(false);
 
   const income = expense.type === "income";
   const category = getCategory(expense.categoryId);
@@ -27,13 +30,18 @@ export default function ExpenseRow({ expense, currency, onEdit, onDelete, traili
   const startPress = (e) => {
     longPressed.current = false;
     origin.current = { x: e.clientX, y: e.clientY };
+    setHolding(true);
     timer.current = setTimeout(() => {
       longPressed.current = true;
+      setHolding(false);
       onDelete?.(expense);
     }, LONG_PRESS_MS);
   };
 
-  const endPress = () => clearTimeout(timer.current);
+  const endPress = () => {
+    clearTimeout(timer.current);
+    setHolding(false);
+  };
 
   /* A finger that travels is scrolling the list, not holding the row. Without this
      a long scroll that starts on a row would delete it. */
@@ -45,7 +53,7 @@ export default function ExpenseRow({ expense, currency, onEdit, onDelete, traili
   return (
     <button
       type="button"
-      className="row"
+      className={`row${holding ? " is-holding" : ""}`}
       onPointerDown={startPress}
       onPointerUp={endPress}
       onPointerMove={movePress}
