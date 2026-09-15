@@ -841,6 +841,55 @@ console.log("Home button labels");
 
 console.log("");
 
+console.log("Dark mode");
+
+/* A colour written straight into a rule cannot flip with the theme. Every one
+   that matters lives in tokens.css, which defines it three times: light, the
+   system-dark media query, and the forced [data-theme="dark"] block. Miss one
+   and dark mode silently keeps a light value. */
+{
+  const { readFileSync } = await import("node:fs");
+
+  const tokens = readFileSync("src/styles/tokens.css", "utf8");
+
+  const blocks = [
+    ["light", tokens.slice(0, tokens.indexOf("@media"))],
+    ["system dark", tokens.slice(tokens.indexOf("@media"), tokens.lastIndexOf('[data-theme="dark"]'))],
+    ["forced dark", tokens.slice(tokens.lastIndexOf('[data-theme="dark"]'))],
+  ];
+
+  /* These have to flip, because what they sit on flips. --on-ok is the ink for a
+     solid --ok fill; the sun/moon badge is a pale wash in light and a deep tint
+     in dark. */
+  for (const token of ["--on-ok", "--sun-bg", "--sun-fg", "--moon-bg", "--moon-fg"]) {
+    const missing = blocks.filter(([, css]) => !css.includes(token + ":")).map(([name]) => name);
+    check(`${token} is defined for every theme`, missing.length === 0, `missing in: ${missing.join(", ")}`);
+  }
+
+  /* Only these four literals may live outside tokens.css, and each is deliberate:
+     three sit on a surface that is dark in BOTH themes, and the scrim is a scrim. */
+  const allowed = new Set(["rgba(6, 7, 12, 0.5)", "#f87171", "#fca5a5", "#fff"]);
+
+  const literals = [];
+  for (const file of ["src/styles/global.css", "src/styles/parts.css"]) {
+    const css = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const m of css.matchAll(/(?:^|[:\s,(])(#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\))/g)) {
+      if (!allowed.has(m[1])) literals.push(`${file}: ${m[1]}`);
+    }
+  }
+
+  check("no new hardcoded colours outside tokens.css", literals.length === 0, literals.join(" · "));
+
+  /* The two that were actually failing, so the fix cannot be quietly reverted. */
+  const parts = readFileSync("src/styles/parts.css", "utf8");
+
+  check("the income button takes its ink from a token", /\.btn--income\s*\{[^}]*color:\s*var\(--on-ok\)/.test(parts));
+
+  check("a selected chip does not print white on a category colour", !/\.chip--cat\[aria-pressed="true"\]\s*\{[^}]*color:\s*#fff/.test(parts));
+}
+
+console.log("");
+
 console.log("Your name");
 
 /* Home greets you by a name you can change. It has to survive a reload and a
