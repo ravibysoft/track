@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import Icon from "../components/Icon.jsx";
 import Sheet from "../components/Sheet.jsx";
+import useDragReorder from "../hooks/useDragReorder.js";
 import {
   CATEGORY_COLORS,
   CATEGORY_ICONS,
@@ -58,19 +59,21 @@ export default function CategoriesPage({ onClose, onToast }) {
 
   const commit = (next) => saveSettings({ categories: next });
 
-  /* Reordering moves a category past its neighbour *of the same kind*: the two
-     kinds share one list, so stepping one index at a time would walk a spending
-     category into the income block. */
-  const move = (id, delta) => {
-    const order = shown.map((c) => c.id);
-    const at = order.indexOf(id);
-    const to = at + delta;
-    if (at === -1 || to < 0 || to >= order.length) return;
-    [order[at], order[to]] = [order[to], order[at]];
-
+  /* Both kinds share one stored list, so a reorder is spliced back into the slots
+     this kind already occupies. Stepping through the array directly would walk a
+     spending category into the income block. */
+  const reorder = (orderedIds) => {
+    const byId = new Map(shown.map((c) => [c.id, c]));
     let n = 0;
-    commit(categories.map((c) => (c.kind === kind ? shown.find((x) => x.id === order[n++]) : c)));
+    commit(categories.map((c) => (c.kind === kind ? byId.get(orderedIds[n++]) : c)));
   };
+
+  const { listRef, order, dragging, rowProps, handleProps } = useDragReorder(
+    shown.map((c) => c.id),
+    reorder,
+  );
+
+  const rows = order.map((id) => shown.find((c) => c.id === id)).filter(Boolean);
 
   const toggleHidden = (category) => {
     commit(
@@ -125,16 +128,22 @@ export default function CategoriesPage({ onClose, onToast }) {
         </div>
 
         <p className="hint">
-          Hidden categories stay off the picker, but entries already filed under them
-          keep their name and colour.
+          Drag the handle to reorder — the picker follows this order. Hidden ones
+          stay off it, but entries already filed under them keep their name and
+          colour.
         </p>
 
-        <div className="card card--flat setting-list">
-          {shown.map((category, i) => {
+        <div className={`card card--flat setting-list${dragging ? " is-reordering" : ""}`} ref={listRef}>
+          {rows.map((category, i) => {
             const count = usage.get(category.id) ?? 0;
+            const dragged = rowProps(category.id);
             return (
-              <div key={category.id} className={`cat-row${category.hidden ? " is-hidden" : ""}`}>
-                {i > 0 && <div className="list__sep" />}
+              <div
+                key={category.id}
+                {...dragged}
+                className={`cat-row${category.hidden ? " is-hidden" : ""}${dragged.className ? ` ${dragged.className}` : ""}`}
+              >
+                {i > 0 && !dragging && <div className="list__sep" />}
 
                 <span className="cat cat--sm" style={{ "--cat-color": category.color }}>
                   <Icon name={category.icon} />
@@ -153,26 +162,16 @@ export default function CategoriesPage({ onClose, onToast }) {
                   </span>
                 </button>
 
-                <span className="cat-row__tools">
-                  <button
-                    type="button"
-                    className="icon-btn icon-btn--sm"
-                    onClick={() => move(category.id, -1)}
-                    disabled={i === 0}
-                    aria-label={`Move ${category.label} up`}
-                  >
-                    <Icon name="left" size={16} style={{ rotate: "90deg" }} />
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-btn icon-btn--sm"
-                    onClick={() => move(category.id, 1)}
-                    disabled={i === shown.length - 1}
-                    aria-label={`Move ${category.label} down`}
-                  >
-                    <Icon name="right" size={16} style={{ rotate: "90deg" }} />
-                  </button>
-                </span>
+                {/* Drag to reorder, or focus and use the arrow keys — the drag is
+                    pointer-only, and this is the whole of the keyboard path. */}
+                <button
+                  type="button"
+                  className="cat-row__grip"
+                  aria-label={`Reorder ${category.label}`}
+                  {...handleProps(category.id)}
+                >
+                  <Icon name="grip" size={18} />
+                </button>
               </div>
             );
           })}
@@ -180,7 +179,7 @@ export default function CategoriesPage({ onClose, onToast }) {
 
         <button
           type="button"
-          className="btn btn--ghost btn--lg btn--block"
+          className="btn btn--add btn--lg btn--block"
           onClick={() => setEditing({ isNew: true })}
         >
           <Icon name="plus" size={17} />

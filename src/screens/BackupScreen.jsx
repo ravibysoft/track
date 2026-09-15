@@ -12,7 +12,7 @@ import { useExpenses } from "../state/useExpenses.js";
  * Settings, where the one thing standing between you and losing everything was
  * buried three scrolls down.
  */
-export default function BackupScreen({ onToast }) {
+export default function BackupScreen({ onToast, onSettings }) {
   const { doc, expenses, settings, currency, saveSettings, replaceDoc } = useExpenses();
   const [busy, setBusy] = useState(null);
   const fileRef = useRef(null);
@@ -60,6 +60,14 @@ export default function BackupScreen({ onToast }) {
           <p className="home__eyebrow">Your data</p>
           <h1 className="appbar__title">Backup</h1>
         </div>
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={onSettings}
+          aria-label="Settings"
+        >
+          <Icon name="settings" />
+        </button>
       </header>
 
       <div className="card card--pad stack">

@@ -225,18 +225,22 @@ export default function App() {
           )}
           {tab === "trans" && (
             <HistoryScreen
+              onAdd={() => openAdd("expense")}
               onEdit={openEdit}
               onDelete={deleteWithUndo}
+              onSettings={() => changeTab("settings")}
               onOpenSettings={() => {
                 changeTab("settings");
                 setBudgetSheet(true);
               }}
             />
           )}
-          {tab === "backup" && <BackupScreen onToast={notify} />}
+          {tab === "backup" && (
+            <BackupScreen onToast={notify} onSettings={() => changeTab("settings")} />
+          )}
           {tab === "stats" && (
             <Suspense fallback={<div className="screen"><div className="boot" /></div>}>
-              <StatsScreen />
+              <StatsScreen onSettings={() => changeTab("settings")} />
             </Suspense>
           )}
           {tab === "settings" && (
