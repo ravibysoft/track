@@ -174,12 +174,6 @@ export function categoriesFor(type) {
   return registry.filter((c) => c.kind === kind && !c.hidden);
 }
 
-/** Everything of that kind, hidden included — for the management screen. */
-export function everyCategoryFor(type) {
-  const kind = type === "income" ? "income" : "expense";
-  return registry.filter((c) => c.kind === kind);
-}
-
 /**
  * The category an entry gets when none was chosen, or when a stored one cannot
  * be trusted. Deliberately the neutral "Other", not simply the first in the

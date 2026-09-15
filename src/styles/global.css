@@ -317,6 +317,26 @@ textarea {
   border: 1px solid var(--border);
 }
 
+/* "Add one more" at the end of a list.
+   A filled ghost button was wrong for this: on a dark ground --surface-2 sits
+   almost on top of --surface, so it read as one more panel in the stack rather
+   than as something to press. An outline that is deliberately dashed says
+   "nothing here yet, put something in it", carries the accent so it is plainly
+   the action on the screen, and works the same way in either theme because it
+   borrows the page's own ground instead of a fill. */
+.btn--add {
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+  color: var(--accent);
+  font-weight: 640;
+}
+
+.btn--add:active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  border-style: solid;
+}
+
 .btn--danger {
   background: var(--danger-soft);
   color: var(--danger);
@@ -811,20 +831,57 @@ textarea.input {
   color: var(--text-dim);
 }
 
-.empty__art {
-  display: grid;
-  place-items: center;
-  width: 68px;
-  height: 68px;
-  border-radius: var(--r-lg);
-  background: var(--accent-soft);
-  color: var(--accent);
+/* An illustration, not a glyph in a box — see components/EmptyArt.jsx. It takes
+   its outline from the surrounding text colour, so it belongs to whichever theme
+   is on without needing a palette of its own. */
+.art {
+  width: 132px;
+  height: 106px;
   margin-bottom: var(--sp-1);
+  color: var(--text-faint);
 }
 
-.empty__art svg {
-  width: 30px;
-  height: 30px;
+.art__paper,
+.art__rule,
+.art__ghost {
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.45;
+}
+
+.art__ghost {
+  /* The slot that has nothing in it yet. */
+  stroke-dasharray: 4 4;
+  opacity: 0.35;
+}
+
+.art__bar,
+.art__coin {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A solid disc behind the symbol so the slip's rules do not read through it. */
+.art__coinRing {
+  fill: var(--bg);
+}
+
+.art__coin {
+  fill: var(--accent-soft);
+}
+
+.art__glyph {
+  fill: var(--accent);
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.empty__action {
+  margin-top: var(--sp-2);
 }
 
 .empty__title {

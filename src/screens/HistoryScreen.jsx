@@ -34,8 +34,10 @@ const labelOf = (id) => getCategory(id).label;
 
 export default function HistoryScreen({
   install,
+  onAdd,
   onEdit,
   onDelete,
+  onSettings,
   onOpenSettings,
 }) {
   const { expenses, settings, currency } = useExpenses();
@@ -170,6 +172,15 @@ export default function HistoryScreen({
               <Icon name={searchOpen ? "close" : "search"} />
             </button>
           )}
+
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onSettings}
+            aria-label="Settings"
+          >
+            <Icon name="settings" />
+          </button>
         </header>
 
         {/* Daily / Calendar / Monthly / Total */}
@@ -270,14 +281,29 @@ export default function HistoryScreen({
             {dailyGroups.length === 0 ? (
               <div className="card card--flat">
                 <EmptyState
-                  icon="wallet"
-                  title="No data available"
+                  art="ledger"
+                  currency={currency}
+                  title={
+                    !expenses.length
+                      ? "Your first entry goes here"
+                      : searching
+                        ? "Nothing matches that"
+                        : `Nothing in ${periodLabel}`
+                  }
                   text={
                     !expenses.length
-                      ? "Everything you add shows up here, grouped day by day."
+                      ? "Add what you spend as you go, and it gathers here day by day."
                       : searching
-                        ? "No entry anywhere matches that. Try a shorter word or an amount."
-                        : "Nothing in this month. Step back a month, or add an entry."
+                        ? "No entry in any month matches. Try a shorter word, or an amount."
+                        : "A quiet month, or one you haven't filled in yet."
+                  }
+                  action={
+                    searching ? null : (
+                      <button type="button" className="btn btn--primary" onClick={onAdd}>
+                        <Icon name="plus" size={17} />
+                        Add an entry
+                      </button>
+                    )
                   }
                 />
               </div>

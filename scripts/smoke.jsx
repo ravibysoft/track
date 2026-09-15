@@ -581,6 +581,10 @@ await click($$(".donut__slice")[0], "the same slice again");
 
 check("tapping it again returns to the total", text(".donut__label") === "Spent", `got "${text(".donut__label")}"`);
 
+/* With nothing coming in, "Spending or income?" has one answer, so the question
+   is not asked. */
+check("no side toggle when nothing was earned", $$(".seg--mini").length === 0);
+
 
 
 console.log("\nSettings tab");
@@ -806,6 +810,45 @@ console.log("Row overflow guard");
 
 console.log("");
 
+console.log("Add page seals the screen behind it");
+
+/* The gear now sits on every tab, so the add page is the only thing standing
+   between it and a half-typed amount. It has to genuinely cover the screen —
+   a transparent overlay would leave the button underneath tappable. */
+{
+  const { readFileSync } = await import("node:fs");
+
+  const sheet = readFileSync("src/styles/parts.css", "utf8").replace(/@import[^;]+;/g, "");
+
+  const pageDom = new JSDOM(
+    `<!doctype html><html><head><style>${sheet}</style></head><body>` +
+      `<div class="page"><header class="page__bar"></header></div>` +
+      `</body></html>`,
+  );
+
+  const pageCss = (prop) =>
+    pageDom.window
+      .getComputedStyle(pageDom.window.document.querySelector(".page"))
+      .getPropertyValue(prop);
+
+  check("the add page is fixed over the app", pageCss("position") === "fixed", `got "${pageCss("position")}"`);
+
+  check("it fills the viewport", pageCss("inset") === "0px" || pageCss("top") === "0px", `inset "${pageCss("inset")}" top "${pageCss("top")}"`);
+
+  /* Read from the rule rather than the computed value: the fixture has no
+     tokens.css, so `var(--bg)` resolves to nothing here even though it paints
+     solid in the app. What matters is that a background is declared at all. */
+  const pageRule = [...pageDom.window.document.styleSheets[0].cssRules].find(
+    (r) => r.selectorText === ".page",
+  );
+
+  const declaredBg = pageRule?.style.getPropertyValue("background") || pageRule?.style.getPropertyValue("background-color");
+
+  check("it is opaque, not see-through", !!declaredBg && !/transparent|^none$/.test(declaredBg), `declared "${declaredBg}"`);
+
+  check("and it sits above the tab bar", Number(pageCss("z-index")) > 25, `z-index ${pageCss("z-index")}`);
+}
+
 console.log("Home button labels");
 
 /* The two Home buttons share one row, so each label has half a phone. "Add
@@ -983,6 +1026,22 @@ console.log("Income + calendar in the UI");
   check("ledger balance equals the income", ledger[2] === "₹5,000", `got ${JSON.stringify(ledger)}`);
   check("income does not count as spending", $$(".balance__statValue")[1]?.textContent.trim() === "₹0", `got "${$$(".balance__statValue")[1]?.textContent.trim()}"`);
 
+  /* Income only, no spending at all. The breakdown defaults to spending, so
+     without a fallback this screen would draw an empty ring labelled "₹0". */
+  await click(byText(".tabbar__btn", "Stats"), "Stats tab");
+
+  await act(async () => { await new Promise((r) => setTimeout(r, 400)); });
+
+  check("a period with only income charts the income", text(".donut__label") === "Earned", `got "${text(".donut__label")}"`);
+
+  check("and shows what came in, not a zero", text(".donut__value") === "₹5K", `got "${text(".donut__value")}"`);
+
+  check("its categories are income categories", text(".bd-row__label") === "Salary", `got "${text(".bd-row__label")}"`);
+
+  check("the side toggle is offered", $$(".seg--mini .seg__btn").length === 2, `${$$(".seg--mini .seg__btn").length} buttons`);
+
+  check("and income reads as the selected side", byText(".seg--mini .seg__btn", "Income")?.getAttribute("aria-pressed") === "true");
+
   await click(byText(".tabbar__btn", "Trans."), "Trans. tab");
   await settle();
   await click(byText(".tabstrip__tab", "Calendar"), "Calendar tab");
@@ -1090,6 +1149,54 @@ console.log("Custom categories");
   const old = dbm.migrate({ expenses: [{ amount: 10, categoryId: "food", date: todayKey() }] });
   check("a backup with no category list still works", old.settings.categories.length === cats.BUILT_IN_CATEGORIES.length);
   check("and its entries keep their categories", old.expenses[0].categoryId === "food");
+
+  cats.setCategoryRegistry(cats.defaultCategories());
+}
+
+console.log("");
+
+console.log("Reordering categories");
+
+/* The two kinds share one stored array, and a custom category added later sits
+   *after* the income block in it. So a reorder cannot walk the array — it has to
+   refill the slots this kind already occupies, wherever they are. */
+{
+  const cats = await import("../src/lib/categories.js");
+
+  /* Exactly the shape the app produces after adding a custom category: eight
+     spending, then all the income ones, then the new one on the end. */
+  const stored = cats.normalizeCategories([
+    ...cats.defaultCategories(),
+    { id: "c-rent", label: "House rent", kind: "expense", icon: "home", color: "var(--c-bills)" },
+  ]);
+
+  const kinds = stored.map((c) => c.kind).join(",");
+  check("the stored list really is interleaved", /income,expense$/.test(kinds), kinds);
+
+  /* This is the reorder CategoriesPage performs. */
+  const reorder = (all, kind, orderedIds) => {
+    const byId = new Map(all.filter((c) => c.kind === kind).map((c) => [c.id, c]));
+    let n = 0;
+    return all.map((c) => (c.kind === kind ? byId.get(orderedIds[n++]) : c));
+  };
+
+  const spending = stored.filter((c) => c.kind === "expense").map((c) => c.id);
+  const moved = [spending.at(-1), ...spending.slice(0, -1)];
+  const next = reorder(stored, "expense", moved);
+
+  check("the dragged category lands first", next.filter((c) => c.kind === "expense")[0].id === "c-rent");
+
+  check("nothing is lost or duplicated", next.length === stored.length && new Set(next.map((c) => c.id)).size === stored.length);
+
+  /* The whole point of refilling slots rather than splicing. */
+  check("the income block is untouched", next.filter((c) => c.kind === "income").map((c) => c.id).join() === stored.filter((c) => c.kind === "income").map((c) => c.id).join());
+
+  check("and every slot still holds its own kind", next.map((c) => c.kind).join(",") === kinds);
+
+  /* Reordering one kind must leave the other's order alone even when dragged
+     the other way. */
+  const back = reorder(next, "expense", spending);
+  check("reordering back restores the original order", back.map((c) => c.id).join() === stored.map((c) => c.id).join());
 
   cats.setCategoryRegistry(cats.defaultCategories());
 }
@@ -1205,6 +1312,60 @@ console.log("Repeating entries");
 }
 
 console.log("");
+
+console.log("Editing a repeating rule");
+
+/* Editing changes what happens next and nothing else. The schedule is the rule's
+   memory of what it has already posted, so an edit must not touch it — and the
+   entries it has posted are ordinary entries that stay exactly as recorded. */
+{
+  const rec = await import("../src/lib/recurring.js");
+
+  const dbm = await import("../src/lib/db.js");
+
+  const rule = rec.sanitizeRule({
+    type: "expense", amount: 18000, categoryId: "bills", note: "Rent",
+    paymentMode: "upi", every: "month", anchorDay: 5, nextDate: "2026-01-05",
+  });
+
+  let doc = dbm.migrate({ recurring: [rule], expenses: [] });
+
+  const posted = dbm.runRecurring(doc, "2026-02-10");
+
+  check("the rule posted January and February", posted.added === 2, `${posted.added} posted`);
+
+  /* The rent goes up. */
+  const edited = dbm.setRules(posted.doc, posted.doc.recurring.map((r) => ({ ...r, amount: 21000 })));
+
+  check("the new amount is stored", edited.recurring[0].amount === 21000);
+
+  check("the schedule is left where it was", edited.recurring[0].nextDate === posted.doc.recurring[0].nextDate, edited.recurring[0].nextDate);
+
+  check("and so is the anchor day", edited.recurring[0].anchorDay === 5);
+
+  /* The whole point: last year's rent really was lower. */
+  check("entries already posted keep the old amount", edited.expenses.every((e) => e.amount === 18000), JSON.stringify(edited.expenses.map((e) => e.amount)));
+
+  const after = dbm.runRecurring(edited, "2026-03-10");
+
+  check("the next posting uses the new amount", after.doc.expenses.some((e) => e.amount === 21000));
+
+  check("and it did not re-post what was already there", after.added === 1, `${after.added} posted`);
+
+  /* Switching frequency must not rewind the schedule either. */
+  const weekly = dbm.setRules(after.doc, after.doc.recurring.map((r) => ({ ...r, every: "week" })));
+
+  check("changing the frequency keeps the next date", weekly.recurring[0].nextDate === after.doc.recurring[0].nextDate);
+
+  check("but steps weekly from then on", rec.advance(weekly.recurring[0].nextDate, weekly.recurring[0].every, weekly.recurring[0].anchorDay) === rec.advance(weekly.recurring[0].nextDate, "week"));
+
+  /* An edit that makes no sense must be refused rather than stored. */
+  const broken = dbm.setRules(after.doc, after.doc.recurring.map((r) => ({ ...r, amount: 0 })));
+
+  check("a zero amount is refused, not saved", broken.recurring.length === 0, `${broken.recurring.length} rules survived`);
+}
+
+console.log("");
 console.log("Automatic backup");
 /* One snapshot a day into the public folder. The rules that matter: it never
    writes twice in a day, it never claims a file another phone wrote, and it
@@ -1264,6 +1425,149 @@ console.log("App shell (native feel)");
   check("the pinned header does not scroll", css(".screen__fixed", "flex-grow") === "0");
 }
 console.log("");
+console.log("");
+
+console.log("");
+
+console.log("Empty states");
+
+/* An empty screen that only explains itself leaves you to find your own way out.
+   Where there is an obvious next step it is offered right there — except while
+   searching, when "add an entry" would answer a question nobody asked. */
+{
+  localStorage.removeItem("rozkharcha.v1");
+
+  localStorage.removeItem("track.v1");
+
+  const emptyHost = document.createElement("div");
+
+  document.body.appendChild(emptyHost);
+
+  const emptyRoot = createRoot(emptyHost);
+
+  await act(async () => {
+    emptyRoot.render(createElement(StrictMode, null, createElement(ExpenseProvider, null, createElement(App))));
+  });
+
+  await settle();
+
+  await click([...emptyHost.querySelectorAll(".tabbar__btn")].find((b) => b.textContent.includes("Trans.")), "Trans. tab");
+
+  await act(async () => { await new Promise((r) => setTimeout(r, 450)); });
+
+  const empty = emptyHost.querySelector(".empty");
+
+  check("an empty month says so", !!empty);
+
+  /* Not "No data available" — that is the language of a database, not of a
+     notebook you keep your own spending in. */
+  check("it does not talk like a database", !/no data available/i.test(empty?.textContent ?? ""), `got "${empty?.textContent?.slice(0, 40)}"`);
+
+  check("it draws something, not a bare glyph", !!emptyHost.querySelector(".art"));
+
+  check("the art carries the currency in use", emptyHost.querySelector(".art__glyph")?.textContent === "₹", `got "${emptyHost.querySelector(".art__glyph")?.textContent}"`);
+
+  const addBtn = emptyHost.querySelector(".empty__action .btn");
+
+  check("and it offers the way out", !!addBtn, "no action button");
+
+  await click(addBtn, "Add an entry");
+
+  await act(async () => { await new Promise((r) => setTimeout(r, 450)); });
+
+  check("which opens the add page", emptyHost.querySelector(".page__title")?.textContent === "Add expense", `got "${emptyHost.querySelector(".page__title")?.textContent}"`);
+
+  await click(emptyHost.querySelector(".page__bar .icon-btn"), "Back");
+
+  await act(async () => { await new Promise((r) => setTimeout(r, 450)); });
+
+  /* A search that finds nothing is a different kind of empty: the answer is a
+     different query, not a new entry. */
+  await click(emptyHost.querySelector('.period-bar .icon-btn[aria-label="Search"]'), "search");
+
+  await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+
+  await type(emptyHost.querySelector(".search-bar input"), "zzzznothing");
+
+  await act(async () => { await new Promise((r) => setTimeout(r, 350)); });
+
+  check("a fruitless search still shows an empty state", !!emptyHost.querySelector(".empty"));
+
+  check("but does not offer to add one", !emptyHost.querySelector(".empty__action"), "action offered while searching");
+
+  await act(async () => emptyRoot.unmount());
+
+  emptyHost.remove();
+}
+
+
+console.log("Settings is reachable everywhere");
+
+/* The gear belongs on every tab, so Settings is never more than one tap away —
+   but not on the add page, where the only way out should be Back or Save. */
+{
+  const gearHost = document.createElement("div");
+
+  document.body.appendChild(gearHost);
+
+  const gearRoot = createRoot(gearHost);
+
+  await act(async () => {
+    gearRoot.render(createElement(StrictMode, null, createElement(ExpenseProvider, null, createElement(App))));
+  });
+
+  await settle();
+
+  const gearsIn = (root) => [...root.querySelectorAll('[aria-label="Settings"]')].length;
+
+  const tab = async (name) => {
+    await click([...gearHost.querySelectorAll(".tabbar__btn")].find((b) => b.textContent.includes(name)), name);
+    await act(async () => { await new Promise((r) => setTimeout(r, 450)); });
+  };
+
+  check("Home has it", gearsIn(gearHost) === 1);
+
+  await tab("Trans.");
+
+  check("Trans. has it", gearsIn(gearHost) === 1, `${gearsIn(gearHost)} found`);
+
+  await tab("Backup");
+
+  check("Backup has it", gearsIn(gearHost) === 1, `${gearsIn(gearHost)} found`);
+
+  await tab("Stats");
+
+  check("Stats has it", gearsIn(gearHost) === 1, `${gearsIn(gearHost)} found`);
+
+  /* Settings itself obviously does not need a way back to Settings. */
+  await click(gearHost.querySelector('[aria-label="Settings"]'), "the gear");
+
+  await act(async () => { await new Promise((r) => setTimeout(r, 450)); });
+
+  check("tapping it opens Settings", gearHost.querySelector(".appbar__title")?.textContent === "Settings", `got "${gearHost.querySelector(".appbar__title")?.textContent}"`);
+
+  check("and Settings does not offer itself", gearsIn(gearHost) === 0, `${gearsIn(gearHost)} found`);
+
+  /* The add page is a full-screen overlay. It must not carry a gear of its own,
+     and the one on the screen behind must be sealed under it. */
+  await tab("Trans.");
+
+  await click(gearHost.querySelector(".tabbar__add"), "Add");
+
+  await act(async () => { await new Promise((r) => setTimeout(r, 450)); });
+
+  const addPage = gearHost.querySelector(".page");
+
+  check("the add page opened", addPage?.querySelector(".page__title")?.textContent === "Add expense", `got "${addPage?.querySelector(".page__title")?.textContent}"`);
+
+  check("the add page has no gear of its own", gearsIn(addPage) === 0, `${gearsIn(addPage)} found`);
+
+  await act(async () => gearRoot.unmount());
+
+  gearHost.remove();
+}
+
+
 console.log("Crash recovery");
 /* Without a boundary, one throwing screen unmounts the whole tree and the app is
    a blank white page with no tab bar — unrecoverable on a phone. This proves the

@@ -17,6 +17,7 @@ import {
   Download,
   Equal,
   Gift,
+  GripVertical,
   HeartPulse,
   House,
   Laptop,
@@ -106,6 +107,7 @@ const ICONS = {
   contrast: Contrast,
   target: Target,
   undo: RotateCcw,
+  grip: GripVertical,
   backspace: Delete,
   equals: Equal,
 };

@@ -93,7 +93,7 @@ function buildPeriod(period, anchors) {
   };
 }
 
-export default function StatsScreen() {
+export default function StatsScreen({ onSettings }) {
   const { expenses, currency } = useExpenses();
   const colors = useThemeColors();
 
@@ -110,6 +110,11 @@ export default function StatsScreen() {
   const [activeSlice, setActiveSlice] = useState(null);
   const [activeBar, setActiveBar] = useState(null);
 
+  /* Which side of the ledger the breakdown is showing. Spending is the default
+     because that is what the screen is for; income only becomes a question once
+     there is some. */
+  const [side, setSide] = useState("expense");
+
   const shape = useMemo(() => buildPeriod(period, anchors), [period, anchors]);
 
   /* Cleared by whatever moved the period, rather than by an effect watching it —
@@ -117,6 +122,12 @@ export default function StatsScreen() {
   const clearSelection = () => {
     setActiveSlice(null);
     setActiveBar(null);
+  };
+
+  const showSide = (next) => {
+    // The slice ids belong to the other side's categories, so the highlight goes.
+    setActiveSlice(null);
+    setSide(next);
   };
 
   const data = useMemo(() => {
@@ -152,6 +163,7 @@ export default function StatsScreen() {
       busiest,
       previousSpent,
       breakdown: db.byCategory(items, "expense"),
+      breakdownIncome: db.byCategory(items, "income"),
       average: active > 0 ? round2(totals.expense / active) : 0,
     };
   }, [expenses, shape, period, anchors]);
@@ -177,7 +189,16 @@ export default function StatsScreen() {
         : anchors.month >= currentMonthKey();
 
   const unit = period === "year" ? "month" : "day";
-  const selectedSlice = data.breakdown.find((s) => s.categoryId === activeSlice) ?? null;
+  /* The side is a preference, not a command: it gives way whenever the other one
+     is the only one with anything in it. Stepping back into a month with no
+     income must not leave an empty ring, and neither must a month where money
+     only came in — which is exactly what a payday-only week looks like. */
+  const earning =
+    data.totals.income > 0 && (side === "income" || data.totals.expense === 0);
+  const breakdown = earning ? data.breakdownIncome : data.breakdown;
+  const sideTotal = earning ? data.totals.income : data.totals.expense;
+
+  const selectedSlice = breakdown.find((s) => s.categoryId === activeSlice) ?? null;
   const selectedBar = data.series.find((s) => s.key === activeBar) ?? null;
 
   return (
@@ -187,6 +208,14 @@ export default function StatsScreen() {
           <h1 className="appbar__title">Stats</h1>
           <p className="appbar__sub">Where your money went</p>
         </div>
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={onSettings}
+          aria-label="Settings"
+        >
+          <Icon name="settings" />
+        </button>
       </header>
 
       <div
@@ -232,9 +261,10 @@ export default function StatsScreen() {
       {data.items.length === 0 ? (
         <div className="card">
           <EmptyState
-            icon="stats"
+            art="chart"
+            currency={currency}
             title={`Nothing in ${shape.label}`}
-            text="Add an entry in this period and the charts will fill in."
+            text="Charts need something to draw. Add an entry in this period, or step back to one that has some."
           />
         </div>
       ) : (
@@ -296,11 +326,35 @@ export default function StatsScreen() {
             </div>
           </div>
 
-          <h2 className="section-title">By category</h2>
+          <div className="section-head">
+            <h2 className="section-title">By category</h2>
+            {/* Only worth asking once both sides exist. With no income recorded
+                this is an expense tracker and the question has one answer. */}
+            {data.totals.income > 0 && (
+              <div className="seg seg--mini" style={{ "--seg-index": earning ? 1 : 0, "--seg-count": 2 }}>
+                <button
+                  type="button"
+                  className={`seg__btn${!earning ? " is-active" : ""}`}
+                  onClick={() => showSide("expense")}
+                  aria-pressed={!earning}
+                >
+                  Spending
+                </button>
+                <button
+                  type="button"
+                  className={`seg__btn${earning ? " is-active" : ""}`}
+                  onClick={() => showSide("income")}
+                  aria-pressed={earning}
+                >
+                  Income
+                </button>
+              </div>
+            )}
+          </div>
           <div className="card card--pad">
             <div className="donut">
               <DonutChart
-                data={data.breakdown}
+                data={breakdown}
                 colorOf={(s) => colors[s.categoryId]}
                 labelOf={(s) => getCategory(s.categoryId).label}
                 valueOf={(s) => formatMoney(s.amount, currency)}
@@ -312,24 +366,25 @@ export default function StatsScreen() {
                   would have to float clear of the ring on a narrow screen. */}
               <div className="donut__center">
                 <span className="donut__label">
-                  {selectedSlice ? getCategory(selectedSlice.categoryId).label : "Spent"}
+                  {selectedSlice
+                    ? getCategory(selectedSlice.categoryId).label
+                    : earning
+                      ? "Earned"
+                      : "Spent"}
                 </span>
                 <span className="donut__value num">
-                  {formatCompact(
-                    selectedSlice ? selectedSlice.amount : data.totals.expense,
-                    currency,
-                  )}
+                  {formatCompact(selectedSlice ? selectedSlice.amount : sideTotal, currency)}
                 </span>
                 {selectedSlice && (
                   <span className="donut__share num">
-                    {Math.round(selectedSlice.share * 100)}% of spending
+                    {Math.round(selectedSlice.share * 100)}% of {earning ? "income" : "spending"}
                   </span>
                 )}
               </div>
             </div>
 
             <ul className="breakdown">
-              {data.breakdown.map((slice) => {
+              {breakdown.map((slice) => {
                 const category = getCategory(slice.categoryId);
                 return (
                   <li key={slice.categoryId}>

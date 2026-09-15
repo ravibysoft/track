@@ -787,17 +787,30 @@
 }
 
 /* ---------- Period bar + tab strip (Money Manager layout) ---------- */
+/* Four controls plus a month now share this row — prev, next, search, settings.
+   At 320px that overflowed and broke "September 2026" across two lines, so the
+   gaps tighten and the buttons give up four pixels each. They stay 40px, which
+   the row's own vertical padding still lifts past a comfortable touch target. */
 .period-bar {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   padding: calc(env(safe-area-inset-top) + var(--sp-4)) 0 var(--sp-2);
+}
+
+.period-bar .icon-btn {
+  width: 40px;
+  height: 40px;
 }
 
 .period-bar__label {
   flex: 1;
+  min-width: 0;
   text-align: center;
-  font-size: 18px;
+  /* Never wraps: a month name split over two lines pushes the whole pinned
+     header down and shifts the list under it. */
+  white-space: nowrap;
+  font-size: clamp(15px, 4.6vw, 18px);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -1474,18 +1487,22 @@
   color: var(--text-faint);
 }
 
+/* This block is preamble — it carries no figures — and at 27px over two lines it
+   was pushing the balance card a seventh of the way down the screen. Sized to
+   land on one line on a phone, so the first real number arrives sooner. */
 .home__headline {
   display: flex;
-  align-items: flex-start;
-  gap: var(--sp-4);
-  margin: var(--sp-2) 0 var(--sp-5);
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-1) 0 var(--sp-4);
 }
 
 .home__headline h1 {
   flex: 1;
-  font-size: 27px;
+  min-width: 0;
+  font-size: clamp(19px, 5.4vw, 22px);
   font-weight: 700;
-  line-height: 1.18;
+  line-height: 1.2;
   letter-spacing: -0.03em;
 }
 
@@ -1493,8 +1510,8 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: 54px;
-  height: 54px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--sun-bg);
   color: var(--sun-fg);
@@ -1506,8 +1523,8 @@
 }
 
 .home__sun svg {
-  width: 24px;
-  height: 24px;
+  width: 19px;
+  height: 19px;
 }
 
 /* ---------- Balance card ---------- */
@@ -1961,10 +1978,43 @@
   color: var(--text-faint);
 }
 
-.cat-row__tools {
-  display: flex;
-  gap: var(--sp-1);
+/* The drag handle. `touch-action: none` is what makes the drag possible at all:
+   without it the browser claims the vertical gesture for scrolling and the
+   pointermove events stop arriving. */
+.cat-row__grip {
+  display: grid;
+  place-items: center;
   flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-sm);
+  color: var(--text-faint);
+  touch-action: none;
+  cursor: grab;
+}
+
+.cat-row__grip:active {
+  cursor: grabbing;
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+.cat-row.is-dragging {
+  background: var(--surface);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-3);
+}
+
+/* The row being dragged is placed by the pointer, so it must not also be
+   animating towards where it used to be. */
+.cat-row:not(.is-dragging) {
+  transition: translate 0.18s var(--ease-out);
+}
+
+/* Separators are hidden mid-drag: a row lifting out would leave a hairline
+   floating where it used to be. */
+.setting-list.is-reordering .cat-row {
+  border-radius: var(--r-md);
 }
 
 .icon-btn--sm {
@@ -2085,11 +2135,15 @@
   opacity: 0.55;
 }
 
+/* A button now — tapping a rule opens its editor — so it has to fill its slot
+   and read left-aligned rather than inheriting a button's centring. */
 .rule__body {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 2px;
   min-width: 0;
+  text-align: left;
 }
 
 .rule__title {
@@ -2166,4 +2220,19 @@
 
 .toggle.is-on .toggle__knob {
   translate: 18px 0;
+}
+
+/* A compact segmented control that sits inside a section heading rather than
+   spanning the screen. */
+.seg--mini {
+  flex: none;
+  padding: 2px;
+  gap: 2px;
+}
+
+.seg--mini .seg__btn {
+  min-height: 30px;
+  padding: 0 var(--sp-3);
+  font-size: 12px;
+  border-radius: 8px;
 }

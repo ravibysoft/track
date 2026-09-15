@@ -3,25 +3,35 @@ import CategoryIcon from "../components/CategoryIcon.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import Icon from "../components/Icon.jsx";
-import { getCategory, getPaymentLabel } from "../lib/categories.js";
+import Sheet from "../components/Sheet.jsx";
+import {
+  PAYMENT_MODES,
+  categoriesFor,
+  getCategory,
+  getPaymentLabel,
+} from "../lib/categories.js";
 import { dayLabel } from "../lib/dates.js";
-import { formatMoney } from "../lib/money.js";
-import { describeRule } from "../lib/recurring.js";
+import { formatMoney, parseAmount } from "../lib/money.js";
+import { FREQUENCIES, describeRule } from "../lib/recurring.js";
 import { useExpenses } from "../state/useExpenses.js";
 
 /**
- * The repeating rules: what they post, when they next post it, and how to pause
- * or stop them.
+ * The repeating rules: what they post, when they next post it, and how to
+ * change, pause or stop them.
  *
- * There is no editor here on purpose. A rule is created by ticking Repeat while
- * adding the entry — where the amount, category and note are already being typed
- * — so this screen only has to answer "what is going to happen, and can I stop
- * it". Changing an amount means stopping the old rule and adding the new one,
- * which is also the honest thing to record: last year's rent really was lower.
+ * Editing only ever changes what happens *next*. Entries a rule has already
+ * posted are ordinary entries and are left exactly alone, so raising the rent
+ * here does not quietly rewrite last year into having cost more — which is why
+ * this can be a plain edit rather than stop-and-recreate.
+ *
+ * `nextDate` and `anchorDay` are deliberately not editable. They are the rule's
+ * memory of where it has got to, and letting them be typed over is how you post
+ * the rent twice.
  */
 export default function RecurringPage({ onClose, onToast }) {
   const { rules, currency, saveRules } = useExpenses();
 
+  const [editing, setEditing] = useState(null);
   const [confirmStop, setConfirmStop] = useState(null);
   const [closing, setClosing] = useState(false);
 
@@ -45,6 +55,12 @@ export default function RecurringPage({ onClose, onToast }) {
     onToast?.(rule.paused ? "Repeating again" : "Paused");
   };
 
+  const save = (draft) => {
+    saveRules(rules.map((r) => (r.id === draft.id ? { ...r, ...draft } : r)));
+    setEditing(null);
+    onToast?.("Repeating entry updated");
+  };
+
   const stop = (rule) => {
     saveRules(rules.filter((r) => r.id !== rule.id));
     setConfirmStop(null);
@@ -64,7 +80,8 @@ export default function RecurringPage({ onClose, onToast }) {
         {rules.length === 0 ? (
           <div className="card">
             <EmptyState
-              icon="calendar"
+              art="repeat"
+              currency={currency}
               title="Nothing repeats yet"
               text="Rent, salary, an EMI — add the entry once and pick Every month, and it saves itself from then on."
             />
@@ -72,8 +89,8 @@ export default function RecurringPage({ onClose, onToast }) {
         ) : (
           <>
             <p className="hint">
-              Each one saves a normal entry on its day. Entries already saved stay
-              exactly as they are, whatever you do here.
+              Tap one to change what it posts. Entries already saved stay exactly
+              as they are, whatever you do here.
             </p>
 
             <div className="card card--flat setting-list">
@@ -85,7 +102,11 @@ export default function RecurringPage({ onClose, onToast }) {
 
                     <CategoryIcon id={rule.categoryId} size="sm" />
 
-                    <span className="grow rule__body">
+                    <button
+                      type="button"
+                      className="grow rule__body"
+                      onClick={() => setEditing(rule)}
+                    >
                       <span className="rule__title">
                         {rule.note?.trim() || category.label}
                       </span>
@@ -95,7 +116,7 @@ export default function RecurringPage({ onClose, onToast }) {
                       <span className="rule__next">
                         {rule.paused ? "Paused" : `Next ${dayLabel(rule.nextDate)}`}
                       </span>
-                    </span>
+                    </button>
 
                     <span className="rule__side">
                       <span
@@ -131,6 +152,16 @@ export default function RecurringPage({ onClose, onToast }) {
         )}
       </div>
 
+      {editing && (
+        <RuleEditor
+          key={editing.id}
+          rule={editing}
+          currency={currency}
+          onSave={save}
+          onClose={() => setEditing(null)}
+        />
+      )}
+
       {confirmStop && (
         <ConfirmDialog
           title="Stop repeating?"
@@ -141,5 +172,129 @@ export default function RecurringPage({ onClose, onToast }) {
         />
       )}
     </div>
+  );
+}
+
+function RuleEditor({ rule, currency, onSave, onClose }) {
+  const [amountText, setAmountText] = useState(String(rule.amount));
+  const [categoryId, setCategoryId] = useState(rule.categoryId);
+  const [note, setNote] = useState(rule.note ?? "");
+  const [paymentMode, setPaymentMode] = useState(rule.paymentMode);
+  const [every, setEvery] = useState(rule.every);
+
+  const amount = parseAmount(amountText);
+  const valid = amount !== null && amount > 0;
+  const income = rule.type === "income";
+
+  return (
+    <Sheet
+      title={income ? "Repeating income" : "Repeating expense"}
+      onClose={onClose}
+      footer={({ close }) => (
+        <button
+          type="button"
+          className={`btn btn--lg btn--block ${income ? "btn--income" : "btn--primary"}`}
+          disabled={!valid}
+          onClick={() => {
+            onSave({ id: rule.id, amount, categoryId, note: note.trim(), paymentMode, every });
+            close();
+          }}
+        >
+          Save changes
+        </button>
+      )}
+    >
+      <div className="amount-input">
+        <span className="amount-input__symbol">{currency}</span>
+        <input
+          className="amount-input__field num"
+          type="text"
+          inputMode="decimal"
+          placeholder="0"
+          value={amountText}
+          maxLength={10}
+          autoFocus
+          aria-label="Amount"
+          onChange={(e) => setAmountText(e.target.value.replace(/[^0-9.]/g, ""))}
+        />
+      </div>
+
+      <label className="field">
+        <span className="field__label">Note</span>
+        <input
+          className="input"
+          type="text"
+          value={note}
+          maxLength={120}
+          placeholder={income ? "Monthly salary" : "House rent"}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </label>
+
+      <div className="field">
+        <span className="field__label">Category</span>
+        <div className="cat-grid">
+          {categoriesFor(rule.type).map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              className={`cat-option${categoryId === c.id ? " is-active" : ""}`}
+              style={{ "--cat-color": c.color }}
+              onClick={() => setCategoryId(c.id)}
+              aria-pressed={categoryId === c.id}
+            >
+              <CategoryIcon id={c.id} />
+              <span className="cat-option__label">{c.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="field">
+        <span className="field__label">{income ? "Received in" : "Paid by"}</span>
+        <div
+          className="seg"
+          style={{
+            "--seg-index": PAYMENT_MODES.findIndex((m) => m.id === paymentMode),
+            "--seg-count": PAYMENT_MODES.length,
+          }}
+        >
+          {PAYMENT_MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              className={`seg__btn${paymentMode === m.id ? " is-active" : ""}`}
+              onClick={() => setPaymentMode(m.id)}
+              aria-pressed={paymentMode === m.id}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="field">
+        <span className="field__label">Repeat</span>
+        <div className="hstack" style={{ gap: "var(--sp-2)", flexWrap: "wrap" }}>
+          {FREQUENCIES.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className="chip"
+              aria-pressed={every === f.id}
+              onClick={() => setEvery(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        {/* The schedule itself is not editable: nextDate is how the rule knows
+            what it has already posted, and typing over it posts the rent twice. */}
+        <span className="field__hint">
+          Next on {dayLabel(rule.nextDate).toLowerCase()}. Changes apply from then on —
+          entries already saved are untouched.
+        </span>
+      </div>
+    </Sheet>
   );
 }
