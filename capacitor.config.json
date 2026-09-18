@@ -9,5 +9,11 @@
   },
   "server": {
     "androidScheme": "https"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_rozkharcha",
+      "iconColor": "#14513C"
+    }
   }
 }

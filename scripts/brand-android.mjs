@@ -53,18 +53,40 @@ const LOGO = `<?xml version="1.0" encoding="utf-8"?>
     <path
         android:pathData="M12,17.5A3.5,3.5 0 0 1 15.5,14H33a1,1 0 0 1 1,1v2.5M12,17.5v13A3.5,3.5 0 0 0 15.5,34H33a1,1 0 0 0 1,-1v-3M12,17.5h22a1,1 0 0 1 1,1V26m0,0h-4.5a2.75,2.75 0 0 0 0,5.5H35"
         android:fillColor="#00000000"
-        android:strokeColor="#5B5BD6"
+        android:strokeColor="#14513C"
         android:strokeWidth="2.4"
         android:strokeLineCap="round"
         android:strokeLineJoin="round" />
 </vector>
 `;
 
+/* The brand green, --accent in tokens.css. This was the indigo of the first
+   design until the redesign, which is why the installed icon briefly did not
+   match the app it opened. */
 const COLORS = `<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#5B5BD6</color>
+    <color name="ic_launcher_background">#14513C</color>
     <color name="launch_background">#FFFFFF</color>
 </resources>
+`;
+
+/* The status-bar icon for the daily reminder. Android draws notification icons
+   as a white silhouette and ignores their colour, so this must be white on
+   transparent — a full-colour icon renders as a solid grey square. */
+const NOTIFY = `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:pathData="M12,17.5A3.5,3.5 0 0 1 15.5,14H33a1,1 0 0 1 1,1v2.5M12,17.5v13A3.5,3.5 0 0 0 15.5,34H33a1,1 0 0 0 1,-1v-3M12,17.5h22a1,1 0 0 1 1,1V26m0,0h-4.5a2.75,2.75 0 0 0 0,5.5H35"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>
 `;
 
 const LAUNCH = `<?xml version="1.0" encoding="utf-8"?>
@@ -91,6 +113,7 @@ const FILES = [
   [join(res, "drawable/ic_track_foreground.xml"), FOREGROUND],
   [join(res, "drawable/ic_track_logo.xml"), LOGO],
   [join(res, "drawable/launch_screen.xml"), LAUNCH],
+  [join(res, "drawable/ic_stat_rozkharcha.xml"), NOTIFY],
   [join(res, "values/ic_launcher_background.xml"), COLORS],
   [join(res, "mipmap-anydpi-v26/ic_launcher.xml"), ADAPTIVE],
   [join(res, "mipmap-anydpi-v26/ic_launcher_round.xml"), ADAPTIVE],

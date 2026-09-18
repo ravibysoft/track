@@ -143,8 +143,11 @@ export function ExpenseProvider({ children }) {
     [],
   );
 
-  /** Used by Import (replace everything) and by Clear all data. */
+  /** Clear all data: keeps the settings, drops the entries. */
   const replaceDoc = useCallback((raw) => setDoc(db.migrate(raw)), []);
+
+  /** Restore from a backup file — which may have come from another phone. */
+  const importDoc = useCallback((raw) => setDoc(db.restoreDoc(raw)), []);
 
   const value = useMemo(
     () => ({
@@ -163,6 +166,7 @@ export function ExpenseProvider({ children }) {
       saveRules,
       addRule,
       replaceDoc,
+      importDoc,
       flush: flushSave,
     }),
     [
@@ -177,6 +181,7 @@ export function ExpenseProvider({ children }) {
       saveRules,
       addRule,
       replaceDoc,
+      importDoc,
     ],
   );
 

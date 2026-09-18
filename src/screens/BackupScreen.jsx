@@ -13,7 +13,7 @@ import { useExpenses } from "../state/useExpenses.js";
  * buried three scrolls down.
  */
 export default function BackupScreen({ onToast, onSettings }) {
-  const { doc, expenses, settings, currency, saveSettings, replaceDoc } = useExpenses();
+  const { doc, expenses, settings, currency, saveSettings, importDoc } = useExpenses();
   const [busy, setBusy] = useState(null);
   const fileRef = useRef(null);
 
@@ -46,7 +46,7 @@ export default function BackupScreen({ onToast, onSettings }) {
       "import",
       async () => {
         const parsed = await readBackupFile(file);
-        replaceDoc(parsed);
+        importDoc(parsed);
         return parsed;
       },
       (parsed) => `Restored ${parsed.expenses.length} entries`,

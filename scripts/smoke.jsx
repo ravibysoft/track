@@ -1388,8 +1388,15 @@ console.log("Automatic backup");
   /* The day a snapshot was written must not ride along inside the backup: a file
      restored onto a different phone would claim a copy that phone never made,
      and skip today's. */
-  const carried = dbm.migrate({ settings: { lastAutoBackup: "2026-01-01" }, expenses: [] });
+  const carried = dbm.restoreDoc({ settings: { lastAutoBackup: "2026-01-01" }, expenses: [] });
   check("a restored backup cannot claim a snapshot it never wrote", carried.settings.lastAutoBackup === "");
+
+  /* But reopening the app is not a restore. Wiping the day on every launch
+     meant the "daily" copy was rewritten each time the app opened. */
+  const reopened = dbm.migrate({ settings: { lastAutoBackup: "2026-01-01" }, expenses: [] });
+  check("an ordinary relaunch remembers today's snapshot", reopened.settings.lastAutoBackup === "2026-01-01", `got "${reopened.settings.lastAutoBackup}"`);
+
+  check("a malformed snapshot day is not trusted", dbm.migrate({ settings: { lastAutoBackup: "yesterday" } }).settings.lastAutoBackup === "");
 
   /* On the web there is no folder to write to, and a download prompt appearing
      by itself would be worse than nothing. */
@@ -1567,6 +1574,291 @@ console.log("Settings is reachable everywhere");
   gearHost.remove();
 }
 
+
+console.log("Currencies");
+
+/* The symbol and the grouping have to move together: a dollar amount printed in
+   lakhs would be unreadable to the people who count in dollars. */
+{
+  const m = await import("../src/lib/money.js");
+
+  check("rupees keep lakh grouping", m.formatMoney(125400, "₹") === "₹1,25,400", m.formatMoney(125400, "₹"));
+  check("dollars group in thousands", m.formatMoney(125400, "$") === "$125,400", m.formatMoney(125400, "$"));
+  check("euros too", m.formatMoney(1234567.5, "€") === "€1,234,567.50", m.formatMoney(1234567.5, "€"));
+  check("taka counts in lakhs like rupees", m.formatMoney(125400, "৳") === "৳1,25,400", m.formatMoney(125400, "৳"));
+  check("compact rupees use L and Cr", m.formatCompact(250000, "₹") === "₹2.5L" && m.formatCompact(30000000, "₹") === "₹3Cr");
+  check("compact dollars use M, never L", m.formatCompact(2500000, "$") === "$2.5M", m.formatCompact(2500000, "$"));
+  check("a code-style symbol keeps its space", m.formatMoney(500, "AED ") === "AED 500", m.formatMoney(500, "AED "));
+  check("an unknown symbol still formats", m.formatMoney(1500, "CHF ") === "CHF 1,500", m.formatMoney(1500, "CHF "));
+}
+
+console.log("");
+
+console.log("Add again");
+
+/* Offer back what someone keeps typing in — but only real habits, not every
+   lunch they ever had. */
+{
+  const dbm = await import("../src/lib/db.js");
+
+  const today = "2026-09-18";
+  const e = (date, note, amount, extra = {}) => ({
+    id: `${date}-${note}-${amount}-${Math.random()}`,
+    type: "expense",
+    categoryId: "food",
+    paymentMode: "upi",
+    createdAt: `${date}T10:00:00.000Z`,
+    date,
+    note,
+    amount,
+    ...extra,
+  });
+
+  const list = [
+    e("2026-09-17", "Chai", 20),
+    e("2026-09-16", "chai ", 20, { paymentMode: "cash" }),
+    e("2026-09-15", "Chai", 20),
+    e("2026-09-14", "Auto", 40, { categoryId: "travel" }),
+    e("2026-09-10", "Auto", 40, { categoryId: "travel" }),
+    e("2026-09-12", "Birthday dinner", 1800),
+    // A habit that stopped long ago is not a habit any more.
+    e("2026-06-01", "Gym", 500),
+    e("2026-06-02", "Gym", 500),
+  ];
+
+  const offered = dbm.frequentEntries(list, today);
+
+  check("repeated entries are offered", offered.length === 2, JSON.stringify(offered.map((o) => o.note)));
+  check("the most frequent comes first", offered[0]?.note.toLowerCase() === "chai" && offered[0]?.count === 3);
+  check("notes match case- and space-blind", offered[0]?.count === 3);
+  check("a one-off is not offered", !offered.some((o) => o.note === "Birthday dinner"));
+  check("an old habit is not offered", !offered.some((o) => o.note === "Gym"));
+  check("the latest payment mode is carried", offered[0]?.paymentMode === "upi", offered[0]?.paymentMode);
+  check("a different amount is a different habit", dbm.frequentEntries([...list, e("2026-09-17", "Chai", 25)], today)[0].amount === 20);
+
+  /* Quick-add's Undo needs the id before the entry exists. */
+  const doc = dbm.addExpense(dbm.migrate({}), { id: "known-id", amount: 20, categoryId: "food", date: today });
+  check("an entry can be given its id up front", doc.expenses[0].id === "known-id");
+  const again = dbm.addExpense(doc, { id: "known-id", amount: 30, categoryId: "food", date: today });
+  check("but never one that is already taken", again.expenses[0].id !== "known-id" && again.expenses.length === 2);
+}
+
+console.log("");
+
+console.log("Add again in the UI");
+
+{
+  const t = todayKey();
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const y = toKey(d);
+  localStorage.setItem(
+    "rozkharcha.v1",
+    JSON.stringify({
+      settings: { onboarded: true },
+      expenses: [
+        { id: "a1", type: "expense", amount: 20, categoryId: "food", note: "Chai", paymentMode: "upi", date: y, createdAt: `${y}T09:00:00Z`, updatedAt: `${y}T09:00:00Z` },
+        { id: "a2", type: "expense", amount: 20, categoryId: "food", note: "Chai", paymentMode: "upi", date: t, createdAt: `${t}T09:00:00Z`, updatedAt: `${t}T09:00:00Z` },
+      ],
+    }),
+  );
+
+  const qHost = document.createElement("div");
+  document.body.appendChild(qHost);
+  const qRoot = createRoot(qHost);
+  await act(async () => {
+    qRoot.render(createElement(StrictMode, null, createElement(ExpenseProvider, null, createElement(App))));
+  });
+  await settle();
+
+  const chip = qHost.querySelector(".quick__chip");
+  check("Home offers the habit back", !!chip && /Chai/.test(chip.textContent), chip?.textContent);
+
+  const before = qHost.querySelectorAll(".row").length;
+  await click(chip, "Chai chip");
+  await settle();
+
+  const rows = qHost.querySelectorAll(".row").length;
+  check("one tap adds it", rows === Math.min(before + 1, 5), `${before} → ${rows} rows`);
+  check("dated today", JSON.parse(localStorage.getItem("rozkharcha.v1")).expenses.filter((x) => x.note === "Chai" && x.date === t).length === 2);
+  check("and says so, with Undo", /Added Chai/.test(qHost.querySelector(".snackbar")?.textContent ?? document.body.textContent));
+
+  const undo = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Undo");
+  await click(undo, "Undo");
+  await settle();
+  check("Undo takes back exactly that entry", JSON.parse(localStorage.getItem("rozkharcha.v1")).expenses.length === 2);
+
+  await act(async () => qRoot.unmount());
+  qHost.remove();
+  localStorage.removeItem("rozkharcha.v1");
+}
+
+console.log("");
+
+console.log("Daily reminder");
+
+{
+  const r = await import("../src/lib/reminder.js");
+  const dbm = await import("../src/lib/db.js");
+
+  check("a time reads as hour and minute", JSON.stringify(r.parseTime("21:30")) === '{"hour":21,"minute":30}');
+  check("rubbish falls back to 9 pm", JSON.stringify(r.parseTime("soon")) === '{"hour":21,"minute":0}');
+  check("it reads naturally", r.formatTime("21:00") === "9:00 pm" && r.formatTime("07:05") === "7:05 am" && r.formatTime("00:00") === "12:00 am");
+
+  check("reminders are off until asked for", dbm.migrate({}).settings.reminder.on === false);
+  check("a saved reminder survives", dbm.migrate({ settings: { reminder: { on: true, time: "20:15" } } }).settings.reminder.time === "20:15");
+  check("an impossible time is refused", dbm.migrate({ settings: { reminder: { on: true, time: "25:99" } } }).settings.reminder.time === "21:00");
+
+  /* A browser cannot notify on a schedule once the tab is shut, so it says so
+     rather than pretending. */
+  check("the web says plainly it cannot", (await r.syncReminder({ on: true, time: "21:00" })).reason === "web");
+}
+
+console.log("");
+
+console.log("App lock");
+
+{
+  const lock = await import("../src/lib/lock.js");
+  const dbm = await import("../src/lib/db.js");
+  const { buildJson: toJson } = await import("../src/lib/backup.js");
+
+  lock.clearLock();
+  check("off by default", lock.lockStatus().on === false);
+
+  await lock.setPin("2468");
+  check("a PIN turns it on", lock.lockStatus().on === true);
+
+  const stored = localStorage.getItem("rozkharcha.lock") ?? "";
+  check("the digits are never stored", !stored.includes("2468"));
+
+  /* Kept out of the document on purpose: backups are shared and restored onto
+     other phones, and a lock inside them would leak or lock people out. */
+  check("the lock never travels in a backup", !/pinHash|2468/.test(toJson(dbm.migrate({}))));
+
+  check("the right PIN opens it", (await lock.verifyPin("2468")).ok === true);
+  const wrong = await lock.verifyPin("1111");
+  check("a wrong one does not", wrong.ok === false && wrong.left === lock.MAX_ATTEMPTS - 1, JSON.stringify(wrong));
+
+  let last;
+  for (let i = 0; i < lock.MAX_ATTEMPTS; i++) last = await lock.verifyPin("0000");
+  check("too many wrong tries forces a wait", last.cooldown > 0, JSON.stringify(last));
+  check("and during it even the right PIN waits", (await lock.verifyPin("2468")).ok === false);
+  check("the wait ends", (await lock.verifyPin("2468", Date.now() + lock.COOLDOWN_MS + 1)).ok === true);
+
+  let threw = false;
+  try {
+    await lock.setPin("12");
+  } catch {
+    threw = true;
+  }
+  check("a short PIN is refused", threw);
+
+  /* The whole screen, locked from the first paint. */
+  lock.clearLock();
+  await lock.setPin("2468");
+  localStorage.setItem("rozkharcha.v1", JSON.stringify({ settings: { onboarded: true }, expenses: [] }));
+
+  const lHost = document.createElement("div");
+  document.body.appendChild(lHost);
+  const lRoot = createRoot(lHost);
+  await act(async () => {
+    lRoot.render(createElement(StrictMode, null, createElement(ExpenseProvider, null, createElement(App))));
+  });
+  await settle();
+
+  check("the app opens locked", !!lHost.querySelector(".lock"));
+
+  const key = (k) => [...lHost.querySelectorAll(".lock__key")].find((b) => b.textContent.trim() === k);
+  const typePin = async (pin) => {
+    for (const ch of pin) await click(key(ch), `key ${ch}`);
+    await settle(120);
+  };
+
+  await typePin("1357");
+  check("a wrong PIN keeps it shut", !!lHost.querySelector(".lock") && /Wrong PIN/.test(lHost.querySelector(".lock__msg")?.textContent ?? ""));
+
+  await typePin("2468");
+  check("the right PIN opens it", !lHost.querySelector(".lock"));
+
+  await act(async () => lRoot.unmount());
+  lHost.remove();
+  lock.clearLock();
+  localStorage.removeItem("rozkharcha.v1");
+}
+
+console.log("");
+
+console.log("Summary picture");
+
+{
+  const s = await import("../src/lib/summaryImage.js");
+
+  const day = "2026-09-10";
+  const mk = (categoryId, amount, type = "expense") => ({
+    id: `${categoryId}${amount}`, type, amount, categoryId, note: "", date: day, paymentMode: "cash", createdAt: day, updatedAt: day,
+  });
+
+  const items = [
+    mk("food", 900), mk("groceries", 800), mk("travel", 700), mk("bills", 600),
+    mk("shopping", 500), mk("health", 300), mk("entertainment", 200), mk("salary", 5000, "income"),
+  ];
+  const model = s.summaryModel(items, "September 2026");
+
+  check("it totals the period", model.spent === 4000 && model.earned === 5000 && model.net === 1000);
+  /* Past five rows the bars get too thin to read, so the tail folds together. */
+  check("the long tail folds into one row", model.rows.length === 6 && model.rows[5].label === "Everything else");
+  check("and that row is the sum of the tail", model.rows[5].amount === 500, String(model.rows[5].amount));
+  check("the biggest comes first", model.rows[0].label === "Food & Drinks");
+  check("colours are real values a canvas can paint", model.rows.every((r) => /^#[0-9a-f]{6}$/i.test(r.color)), model.rows.map((r) => r.color).join());
+  check("income never lands in the spending rows", !model.rows.some((r) => r.label === "Salary"));
+}
+
+console.log("");
+
+console.log("First launch");
+
+{
+  const dbm = await import("../src/lib/db.js");
+
+  check("a new install is not onboarded", dbm.migrate({}).settings.onboarded === false);
+  /* Updating the app must never greet an existing user with setup. */
+  check("anyone with entries is past it", dbm.migrate({ expenses: [{ amount: 5, categoryId: "food", date: "2026-01-01" }] }).settings.onboarded === true);
+  check("so is anyone who set their name", dbm.migrate({ settings: { name: "Asha" } }).settings.onboarded === true);
+
+  localStorage.removeItem("rozkharcha.v1");
+  const wHost = document.createElement("div");
+  document.body.appendChild(wHost);
+  const wRoot = createRoot(wHost);
+  await act(async () => {
+    wRoot.render(createElement(StrictMode, null, createElement(ExpenseProvider, null, createElement(App))));
+  });
+  await settle();
+
+  check("a fresh install shows setup", !!wHost.querySelector(".welcome"));
+
+  await type(wHost.querySelector(".welcome input"), "Asha");
+  await click([...wHost.querySelectorAll(".welcome__opt")].find((b) => b.textContent.trim() === "$"), "$");
+  await click([...wHost.querySelectorAll(".welcome .btn")].find((b) => b.textContent.trim() === "Next"), "Next");
+  await settle();
+  await type(wHost.querySelector(".welcome .amount-input__field"), "2000");
+  await click([...wHost.querySelectorAll(".welcome .btn")].find((b) => /Start/.test(b.textContent)), "Start");
+  await settle();
+
+  check("setup goes away when done", !wHost.querySelector(".welcome"));
+  check("Home greets them by name", wHost.querySelector(".home__app")?.textContent === "Asha", wHost.querySelector(".home__app")?.textContent);
+  check("in their currency", wHost.querySelector(".home__badge")?.textContent.trim() === "$");
+  check("with their budget", /\$2,000/.test(wHost.querySelector(".balance__budget")?.textContent ?? ""), wHost.querySelector(".balance__budget")?.textContent);
+
+  const saved = JSON.parse(localStorage.getItem("rozkharcha.v1")).settings;
+  check("and it never shows again", saved.onboarded === true);
+
+  await act(async () => wRoot.unmount());
+  wHost.remove();
+  localStorage.removeItem("rozkharcha.v1");
+}
+
+console.log("");
 
 console.log("Crash recovery");
 /* Without a boundary, one throwing screen unmounts the whole tree and the app is

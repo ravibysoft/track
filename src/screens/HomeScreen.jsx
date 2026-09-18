@@ -1,9 +1,11 @@
 import { useMemo } from "react";
+import CategoryIcon from "../components/CategoryIcon.jsx";
 import ExpenseRow from "../components/ExpenseRow.jsx";
 import Icon from "../components/Icon.jsx";
 import InstallCard from "../components/InstallCard.jsx";
 import * as db from "../lib/db.js";
-import { currentMonthKey, dayLabel, monthLabel } from "../lib/dates.js";
+import { getCategory } from "../lib/categories.js";
+import { currentMonthKey, dayLabel, monthLabel, todayKey } from "../lib/dates.js";
 import { formatMoney } from "../lib/money.js";
 import { useExpenses } from "../state/useExpenses.js";
 
@@ -15,7 +17,16 @@ function timeOfDay() {
   return { greeting: "Good evening", icon: "moon" };
 }
 
-export default function HomeScreen({ install, onAdd, onAddIncome, onEdit, onDelete, onSeeAll, onOpenSettings }) {
+export default function HomeScreen({
+  install,
+  onAdd,
+  onAddIncome,
+  onQuickAdd,
+  onEdit,
+  onDelete,
+  onSeeAll,
+  onOpenSettings,
+}) {
   const { expenses, settings, currency } = useExpenses();
   const month = currentMonthKey();
   const { greeting, icon } = timeOfDay();
@@ -25,6 +36,7 @@ export default function HomeScreen({ install, onAdd, onAddIncome, onEdit, onDele
     return {
       ...db.totals(items),
       latest: db.sortExpenses(expenses).slice(0, 5),
+      frequent: db.frequentEntries(expenses, todayKey()),
     };
   }, [expenses, month]);
 
@@ -50,7 +62,10 @@ export default function HomeScreen({ install, onAdd, onAddIncome, onEdit, onDele
   return (
     <div className="screen home">
       <header className="home__bar">
-        <span className="home__badge">{currency}</span>
+        {/* A code like "AED" needs a smaller face to fit the same badge as "₹". */}
+        <span className={`home__badge${currency.trim().length > 1 ? " is-code" : ""}`}>
+          {currency.trim()}
+        </span>
         <span className="grow">
           <span className="home__greeting">{greeting}</span>
           <span className="home__app">{settings.name}</span>
@@ -122,6 +137,36 @@ export default function HomeScreen({ install, onAdd, onAddIncome, onEdit, onDele
           Add income
         </button>
       </div>
+
+      {/* The same few things, typed in over and over — each one is a single tap
+          here. It only appears once there is a habit to offer back: anything that
+          happened at least twice in the last six weeks. */}
+      {stats.frequent.length > 0 && (
+        <div className="quick">
+          <span className="home__eyebrow">Add again · today</span>
+          <div className="quick__row">
+            {stats.frequent.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                className="quick__chip"
+                onClick={() => onQuickAdd(t)}
+                aria-label={`Add ${t.note || getCategory(t.categoryId).label}, ${formatMoney(t.amount, currency)}, today`}
+              >
+                <CategoryIcon id={t.categoryId} size="sm" />
+                <span className="quick__text">
+                  <span className="quick__label">{t.note || getCategory(t.categoryId).label}</span>
+                  <span
+                    className={`quick__amount num${t.type === "income" ? " row__amount--income" : ""}`}
+                  >
+                    {formatMoney(t.amount, currency)}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {install?.canInstall && <InstallCard onInstall={install.promptInstall} />}
 
