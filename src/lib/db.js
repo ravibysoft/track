@@ -38,8 +38,24 @@ export function emptyDoc() {
       autoBackup: true,
       // The day the last automatic snapshot was written, or "" for never.
       lastAutoBackup: "",
+      // A nudge at the end of the day to log what was spent. Off until asked for.
+      reminder: { ...DEFAULT_REMINDER },
+      // Set once the first-launch setup has been finished or skipped.
+      onboarded: false,
     },
   };
+}
+
+export const DEFAULT_REMINDER = { on: false, time: "21:00" };
+
+/** "HH:MM", 24-hour. Anything else falls back to the default evening time. */
+function cleanReminder(raw) {
+  const r = raw && typeof raw === "object" ? raw : {};
+  const time =
+    typeof r.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(r.time)
+      ? r.time
+      : DEFAULT_REMINDER.time;
+  return { on: r.on === true, time };
 }
 
 export function newId() {
@@ -79,12 +95,31 @@ export function migrate(raw) {
       theme: ["system", "light", "dark"].includes(s.theme) ? s.theme : base.settings.theme,
       categories,
       autoBackup: s.autoBackup !== false,
-      /* Deliberately not carried over from the file. A backup restored onto a
-         different phone would otherwise claim a snapshot that phone never wrote,
-         and skip today's. */
-      lastAutoBackup: "",
+      /* Kept across ordinary launches, so the daily copy really is daily. A backup
+         being *restored* is different — it may come from another phone that
+         wrote snapshots this one never had — and restoreDoc() clears it there. */
+      lastAutoBackup: isValidKey(s.lastAutoBackup) ? s.lastAutoBackup : "",
+      reminder: cleanReminder(s.reminder),
+      /* Anyone who already has entries, or has already put their own name in,
+         is past first launch — an update must never greet them with setup. */
+      onboarded:
+        s.onboarded === true ||
+        expenses.length > 0 ||
+        (cleanName(s.name) ?? APP_NAME) !== APP_NAME,
     },
   };
+}
+
+/**
+ * migrate() for a file being restored rather than a store being reopened.
+ *
+ * The one difference is the snapshot day: a backup file can come from another
+ * phone, and trusting its lastAutoBackup would let this phone skip a snapshot it
+ * never actually wrote.
+ */
+export function restoreDoc(raw) {
+  const doc = migrate(raw);
+  return { ...doc, settings: { ...doc.settings, lastAutoBackup: "" } };
 }
 
 /** Trimmed and capped, or null when there is nothing usable to greet you by. */
@@ -135,14 +170,21 @@ function resolveCategory(id, type, categories) {
 
 /* ---------- Mutations ---------- */
 
+/**
+ * `input.id` is honoured when given, so a caller that needs to take the entry
+ * back — quick-add's Undo — knows its id before it exists. Otherwise one is made.
+ */
 export function buildEntry(input, categories) {
   const now = new Date().toISOString();
-  return sanitizeEntry({ ...input, id: newId(), createdAt: now, updatedAt: now }, categories);
+  const id = typeof input?.id === "string" && input.id ? input.id : newId();
+  return sanitizeEntry({ ...input, id, createdAt: now, updatedAt: now }, categories);
 }
 
 export function addExpense(doc, input) {
-  const entry = buildEntry(input, doc.settings.categories);
+  let entry = buildEntry(input, doc.settings.categories);
   if (!entry) return doc;
+  // A caller-supplied id must never shadow an entry that already has it.
+  if (doc.expenses.some((e) => e.id === entry.id)) entry = { ...entry, id: newId() };
   return { ...doc, expenses: [entry, ...doc.expenses] };
 }
 
@@ -302,6 +344,51 @@ export function dailyTotals(entries, dayKeys) {
     map.set(e.date, round2((map.get(e.date) ?? 0) + e.amount));
   }
   return dayKeys.map((day) => ({ day, amount: map.get(day) ?? 0 }));
+}
+
+/**
+ * The entries a person keeps typing in — chai ₹20, the auto to work ₹40 — as
+ * templates for one-tap "add again" on Home.
+ *
+ * Two entries count as the same when type, category, note and amount all match
+ * (the note compared case-blind). Only things that happened at least twice in
+ * the window qualify: one lunch is not a habit, and offering it back would just
+ * clutter Home. The most frequent come first, recency breaking ties, and each
+ * template carries the payment mode used most recently.
+ */
+export function frequentEntries(expenses, today = todayKey(), { days = 45, limit = 6 } = {}) {
+  const since = new Date(`${today}T00:00:00`);
+  since.setDate(since.getDate() - days);
+  const from = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, "0")}-${String(since.getDate()).padStart(2, "0")}`;
+
+  const groups = new Map();
+  for (const e of expenses) {
+    if (e.date < from || e.date > today) continue;
+    const key = `${e.type}|${e.categoryId}|${e.note.trim().toLowerCase()}|${e.amount}`;
+    const g = groups.get(key);
+    if (!g) {
+      groups.set(key, { count: 1, latest: e });
+    } else {
+      g.count += 1;
+      if (e.date > g.latest.date || (e.date === g.latest.date && e.createdAt > g.latest.createdAt)) {
+        g.latest = e;
+      }
+    }
+  }
+
+  return [...groups.values()]
+    .filter((g) => g.count >= 2)
+    .sort((a, b) => b.count - a.count || b.latest.date.localeCompare(a.latest.date))
+    .slice(0, limit)
+    .map(({ count, latest }) => ({
+      key: `${latest.type}|${latest.categoryId}|${latest.note.trim().toLowerCase()}|${latest.amount}`,
+      count,
+      type: latest.type,
+      amount: latest.amount,
+      categoryId: latest.categoryId,
+      note: latest.note.trim(),
+      paymentMode: latest.paymentMode,
+    }));
 }
 
 /** Spending and income per day, for the calendar grid. */

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1024" height="1024">
-  <rect width="48" height="48" fill="#5b5bd6" />
+  <rect width="48" height="48" fill="#14513c" />
   <!-- Stroke stays 2.5 so that, once the group is scaled, the mark keeps the same
        stroke-to-size ratio as the rounded-tile icon instead of going blobby. -->
   <g transform="translate(24 24) scale(0.82) translate(-23.5 -24)">

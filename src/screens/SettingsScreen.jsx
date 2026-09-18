@@ -1,11 +1,15 @@
 import { useMemo, useState } from "react";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import Icon from "../components/Icon.jsx";
+import LockSheet from "../components/LockSheet.jsx";
 import Sheet from "../components/Sheet.jsx";
 import { APP_NAME, cleanName } from "../lib/db.js";
 import * as db from "../lib/db.js";
 import { fullDayLabel } from "../lib/dates.js";
-import { formatMoney, parseAmount } from "../lib/money.js";
+import { lockStatus } from "../lib/lock.js";
+import { CURRENCIES, formatMoney, parseAmount } from "../lib/money.js";
+import { formatTime } from "../lib/reminder.js";
+import { isNative } from "../lib/storage.js";
 import { useExpenses } from "../state/useExpenses.js";
 
 const THEMES = [
@@ -27,6 +31,13 @@ export default function SettingsScreen({
   const ruleCount = rules.filter((r) => !r.paused).length;
   const [clearStep, setClearStep] = useState(0);
   const [nameSheet, setNameSheet] = useState(false);
+  const [currencySheet, setCurrencySheet] = useState(false);
+  const [lockSheet, setLockSheet] = useState(false);
+  // Read when the sheet closes, since the lock lives outside the document.
+  const [lock, setLock] = useState(lockStatus);
+
+  const reminder = settings.reminder;
+  const currencyInfo = CURRENCIES.find((c) => c.symbol === currency);
 
   const summary = useMemo(() => {
     const sorted = db.sortExpenses(expenses);
@@ -59,6 +70,97 @@ export default function SettingsScreen({
             <span className="setting-row__hint">Home greets you by this</span>
           </span>
           <span className="setting-row__value">{settings.name}</span>
+          <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
+        </button>
+
+        <div className="list__sep" />
+
+        <button type="button" className="setting-row" onClick={() => setCurrencySheet(true)}>
+          <span className="cat cat--sm" style={{ "--cat-color": "var(--c-bills)" }}>
+            <Icon name="coins" />
+          </span>
+          <span className="grow setting-row__text">
+            <span className="setting-row__label">Currency</span>
+            <span className="setting-row__hint">{currencyInfo?.label ?? "Custom"}</span>
+          </span>
+          <span className="setting-row__value">{currency.trim()}</span>
+          <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
+        </button>
+      </div>
+
+      {/* The nudge that keeps the numbers honest */}
+      <h2 className="section-title">Reminder</h2>
+      <div className="card setting-list">
+        <div className="setting-row">
+          <span
+            className="cat cat--sm"
+            style={{ "--cat-color": reminder.on ? "var(--accent)" : "var(--text-faint)" }}
+          >
+            <Icon name="bell" />
+          </span>
+          <span className="grow setting-row__text">
+            <span className="setting-row__label">Daily reminder</span>
+            <span className="setting-row__hint">
+              {!isNative()
+                ? "Only in the installed app — a browser can't notify on a schedule"
+                : reminder.on
+                  ? `Every day at ${formatTime(reminder.time)}`
+                  : "A nudge to log the day's spending"}
+            </span>
+          </span>
+          <button
+            type="button"
+            className={`toggle${reminder.on ? " is-on" : ""}`}
+            role="switch"
+            aria-checked={reminder.on}
+            aria-label="Daily reminder"
+            disabled={!isNative()}
+            onClick={() => saveSettings({ reminder: { ...reminder, on: !reminder.on } })}
+          >
+            <span className="toggle__knob" />
+          </button>
+        </div>
+
+        {reminder.on && isNative() && (
+          <>
+            <div className="list__sep" />
+            <label className="setting-row">
+              <span className="grow setting-row__text">
+                <span className="setting-row__label">Remind me at</span>
+                <span className="setting-row__hint">Pick a time you're usually free</span>
+              </span>
+              <input
+                className="time-input num"
+                type="time"
+                value={reminder.time}
+                onChange={(e) => e.target.value && saveSettings({ reminder: { ...reminder, time: e.target.value } })}
+              />
+            </label>
+          </>
+        )}
+      </div>
+
+      {/* Privacy */}
+      <h2 className="section-title">Privacy</h2>
+      <div className="card setting-list">
+        <button type="button" className="setting-row" onClick={() => setLockSheet(true)}>
+          <span
+            className="cat cat--sm"
+            style={{ "--cat-color": lock.on ? "var(--accent)" : "var(--text-faint)" }}
+          >
+            <Icon name="lock" />
+          </span>
+          <span className="grow setting-row__text">
+            <span className="setting-row__label">App lock</span>
+            <span className="setting-row__hint">
+              {lock.on
+                ? lock.biometric
+                  ? "On — PIN or fingerprint"
+                  : "On — asks for your PIN"
+                : "Off — anyone holding the phone can open it"}
+            </span>
+          </span>
+          <span className="setting-row__value">{lock.on ? "On" : "Off"}</span>
           <Icon name="right" size={17} style={{ color: "var(--text-faint)" }} />
         </button>
       </div>
@@ -263,6 +365,27 @@ export default function SettingsScreen({
         />
       )}
 
+      {currencySheet && (
+        <CurrencySheet
+          current={currency}
+          onClose={() => setCurrencySheet(false)}
+          onPick={(symbol) => {
+            saveSettings({ currency: symbol });
+            onToast(`Amounts now show in ${symbol.trim()}`);
+          }}
+        />
+      )}
+
+      {lockSheet && (
+        <LockSheet
+          onToast={onToast}
+          onClose={() => {
+            setLockSheet(false);
+            setLock(lockStatus());
+          }}
+        />
+      )}
+
       {budgetSheetOpen && (
         <BudgetSheet
           current={settings.monthlyBudget}
@@ -340,6 +463,44 @@ function NameSheet({ current, onSave, onClose }) {
           onChange={(e) => setText(e.target.value)}
         />
       </label>
+    </Sheet>
+  );
+}
+
+function CurrencySheet({ current, onPick, onClose }) {
+  return (
+    <Sheet title="Currency" onClose={onClose}>
+      {/* Said up front, because it is the obvious worry: switching the symbol
+          must not look like it silently re-valued a year of entries. */}
+      <p className="sheet__note">
+        Changes the symbol and how numbers are grouped. Nothing is converted — an
+        entry of 500 stays 500, whatever it is shown in.
+      </p>
+      <div className="setting-list">
+        {CURRENCIES.map((c, i) => (
+          <div key={c.symbol}>
+            {i > 0 && <div className="list__sep" />}
+            <button
+              type="button"
+              className="setting-row"
+              aria-pressed={c.symbol === current}
+              onClick={() => {
+                onPick(c.symbol);
+                onClose();
+              }}
+            >
+              <span className="currency-mark">{c.symbol.trim()}</span>
+              <span className="grow setting-row__text">
+                <span className="setting-row__label">{c.label}</span>
+                <span className="setting-row__hint num">
+                  {formatMoney(125400, c.symbol)}
+                </span>
+              </span>
+              {c.symbol === current && <Icon name="check" size={18} style={{ color: "var(--accent)" }} />}
+            </button>
+          </div>
+        ))}
+      </div>
     </Sheet>
   );
 }

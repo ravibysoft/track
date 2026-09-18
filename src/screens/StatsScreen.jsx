@@ -29,6 +29,7 @@ import {
   yearRange,
 } from "../lib/dates.js";
 import { formatCompact, formatMoney, round2 } from "../lib/money.js";
+import { shareSummary, summaryModel } from "../lib/summaryImage.js";
 import { useExpenses } from "../state/useExpenses.js";
 
 const PERIODS = [
@@ -93,9 +94,10 @@ function buildPeriod(period, anchors) {
   };
 }
 
-export default function StatsScreen({ onSettings }) {
+export default function StatsScreen({ onSettings, onToast }) {
   const { expenses, currency } = useExpenses();
   const colors = useThemeColors();
+  const [sharing, setSharing] = useState(false);
 
   const [period, setPeriod] = useState("month");
   const [anchors, setAnchors] = useState(() => ({
@@ -198,6 +200,19 @@ export default function StatsScreen({ onSettings }) {
   const breakdown = earning ? data.breakdownIncome : data.breakdown;
   const sideTotal = earning ? data.totals.income : data.totals.expense;
 
+  const share = async () => {
+    setSharing(true);
+    try {
+      const stem = shape.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const outcome = await shareSummary(summaryModel(data.items, shape.label), currency, stem);
+      if (outcome === "downloaded") onToast?.("Summary saved as a picture");
+    } catch (err) {
+      onToast?.(err?.message || "Couldn't share the summary");
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const selectedSlice = breakdown.find((s) => s.categoryId === activeSlice) ?? null;
   const selectedBar = data.series.find((s) => s.key === activeBar) ?? null;
 
@@ -208,14 +223,28 @@ export default function StatsScreen({ onSettings }) {
           <h1 className="appbar__title">Stats</h1>
           <p className="appbar__sub">Where your money went</p>
         </div>
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={onSettings}
-          aria-label="Settings"
-        >
-          <Icon name="settings" />
-        </button>
+        <div className="appbar__tools">
+          {/* Sends whatever period is on screen — a week, a month or a year. */}
+          {data.items.length > 0 && (
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={share}
+              disabled={sharing}
+              aria-label={`Share ${shape.label} as a picture`}
+            >
+              <Icon name="share" />
+            </button>
+          )}
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onSettings}
+            aria-label="Settings"
+          >
+            <Icon name="settings" />
+          </button>
+        </div>
       </header>
 
       <div

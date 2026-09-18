@@ -1,10 +1,17 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import LockScreen from "./components/LockScreen.jsx";
 import Snackbar from "./components/Snackbar.jsx";
 import TabBar from "./components/TabBar.jsx";
+import WelcomeScreen from "./components/WelcomeScreen.jsx";
 import useInstallPrompt from "./hooks/useInstallPrompt.js";
+import { getCategory } from "./lib/categories.js";
+import { todayKey } from "./lib/dates.js";
 import * as db from "./lib/db.js";
+import { RELOCK_AFTER_MS, lockStatus } from "./lib/lock.js";
+import { formatMoney } from "./lib/money.js";
 import { ruleFromEntry } from "./lib/recurring.js";
+import { syncReminder } from "./lib/reminder.js";
 import { isNative } from "./lib/storage.js";
 import BackupScreen from "./screens/BackupScreen.jsx";
 import CategoriesPage from "./screens/CategoriesPage.jsx";
@@ -23,8 +30,32 @@ const StatsScreen = lazy(() => import("./screens/StatsScreen.jsx"));
 const TAB_ORDER = ["home", "trans", "stats", "backup", "settings"];
 
 export default function App() {
-  const { loaded, currency, add, addRule, update, remove, restore, settings } = useExpenses();
+  const { loaded, currency, expenses, add, addRule, update, remove, restore, settings, saveSettings } =
+    useExpenses();
   const install = useInstallPrompt();
+
+  /* Locked from the very first paint when a PIN is set — reading it lazily here,
+     rather than in an effect, means the app never flashes its numbers before the
+     lock screen covers them. */
+  const [locked, setLocked] = useState(() => lockStatus().on);
+  const hiddenAt = useRef(0);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt.current = Date.now();
+        return;
+      }
+      /* Back after more than a minute away: ask again. A quick trip to copy an
+         amount from a bank SMS, or to pick a backup file, is not worth a PIN. */
+      if (lockStatus().on && hiddenAt.current && Date.now() - hiddenAt.current > RELOCK_AFTER_MS) {
+        setLocked(true);
+      }
+      hiddenAt.current = 0;
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
 
   const [tab, setTab] = useState("home");
   const [form, setForm] = useState(null); // null | { expense: Expense | null }
@@ -110,6 +141,54 @@ export default function App() {
     [form, add, update, addRule, notify, settings.categories],
   );
 
+  /**
+   * One tap from Home's "Add again" row. The id is made here, before the entry
+   * exists, so Undo can take back exactly this entry and nothing else.
+   */
+  const handleQuickAdd = useCallback(
+    (t) => {
+      const id = db.newId();
+      add({
+        id,
+        type: t.type,
+        amount: t.amount,
+        categoryId: t.categoryId,
+        note: t.note,
+        paymentMode: t.paymentMode,
+        date: todayKey(),
+      });
+      setToast({
+        id: Date.now(),
+        message: `Added ${t.note || getCategory(t.categoryId).label} · ${formatMoney(t.amount, currency)}`,
+        actionLabel: "Undo",
+        onAction: () => remove(id),
+      });
+    },
+    [add, remove, currency],
+  );
+
+  /* The phone's reminder schedule follows the setting. If Android refuses the
+     permission, the switch goes back off and says why — a reminder that silently
+     never fires is worse than none. */
+  const reminderOn = settings.reminder?.on;
+  const reminderTime = settings.reminder?.time;
+  useEffect(() => {
+    if (!loaded || !isNative()) return undefined;
+    let alive = true;
+    syncReminder({ on: reminderOn, time: reminderTime })
+      .then((result) => {
+        if (!alive || result.ok) return;
+        if (result.reason === "denied") {
+          saveSettings({ reminder: { on: false, time: reminderTime } });
+          notify("Notifications are blocked. Allow them for Roz Kharcha in Android settings.");
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [loaded, reminderOn, reminderTime, saveSettings, notify]);
+
   /* A new tab always opens at the top. Without this the body keeps the previous
      screen's scroll offset, so a shorter page appears already scrolled down. */
   useEffect(() => {
@@ -137,6 +216,8 @@ export default function App() {
   const backRef = useRef(() => false);
   useEffect(() => {
     backRef.current = () => {
+      /* Back must never be a way past the lock: it leaves the app instead. */
+      if (locked) return false;
       if (form) {
         closeForm();
         return true;
@@ -161,7 +242,7 @@ export default function App() {
       }
       return false;
     };
-  }, [form, budgetSheet, categoriesPage, recurringPage, tab, closeForm, changeTab]);
+  }, [locked, form, budgetSheet, categoriesPage, recurringPage, tab, closeForm, changeTab]);
 
   useEffect(() => {
     if (!isNative()) return undefined;
@@ -217,6 +298,7 @@ export default function App() {
               install={install}
               onAdd={() => openAdd("expense")}
               onAddIncome={() => openAdd("income")}
+              onQuickAdd={handleQuickAdd}
               onEdit={openEdit}
               onDelete={deleteWithUndo}
               onSeeAll={() => changeTab("trans")}
@@ -240,7 +322,7 @@ export default function App() {
           )}
           {tab === "stats" && (
             <Suspense fallback={<div className="screen"><div className="boot" /></div>}>
-              <StatsScreen onSettings={() => changeTab("settings")} />
+              <StatsScreen onSettings={() => changeTab("settings")} onToast={notify} />
             </Suspense>
           )}
           {tab === "settings" && (
@@ -277,6 +359,21 @@ export default function App() {
 
       {recurringPage && (
         <RecurringPage onToast={notify} onClose={() => setRecurringPage(false)} />
+      )}
+
+      {/* First launch only: nobody with entries, or who has already set a name,
+          ever sees this — including everyone updating from an older version. */}
+      {!settings.onboarded && expenses.length === 0 && !locked && (
+        <WelcomeScreen
+          onDone={(values) => {
+            saveSettings({ ...values, onboarded: true });
+            notify(values.name !== db.APP_NAME ? `Welcome, ${values.name}` : "You're all set");
+          }}
+        />
+      )}
+
+      {locked && (
+        <LockScreen biometric={lockStatus().biometric} onUnlock={() => setLocked(false)} />
       )}
 
       {toast && (
