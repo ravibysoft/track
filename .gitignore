@@ -31,3 +31,6 @@ ios/
 
 # Build output
 *.apk
+
+# The one APK that is committed on purpose: a stable path to download on a phone.
+!release/rozkharcha.apk
