@@ -18,8 +18,8 @@ if (!existsSync(android)) {
   process.exit(1);
 }
 
-const JDK = "E:/Android/jdk21/jdk-21.0.12.1+1";
-const SDK = "E:/Android/Sdk";
+const JDK = "C:/Program Files/Android/Android Studio/jbr";
+const SDK = "C:/Users/dell/AppData/Local/Android/Sdk";
 
 /** The wallet mark, sized for the adaptive-icon safe zone. */
 const FOREGROUND = `<?xml version="1.0" encoding="utf-8"?>
