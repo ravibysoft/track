@@ -288,6 +288,11 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* The app is drawn under the transparent system bars; these cover the
+          strips they occupy so scrolled content never shows through them. */}
+      <div className="scrim-top" aria-hidden="true" />
+      <div className="scrim-bottom" aria-hidden="true" />
+
       {/* Keyed on the tab so switching remounts the host and replays its slide-in.
           That remount also resets the boundary, so a screen that failed once gets
           a clean attempt the next time you come back to it. */}

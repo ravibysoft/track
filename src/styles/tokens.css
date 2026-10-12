@@ -83,6 +83,18 @@
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 
+  /* Safe areas — the notch, the status bar and the gesture bar.
+     Two sources on purpose. Android draws this app edge to edge, and the system
+     bars are transparent, so the clock sits *over* the page unless something
+     pads it down. Capacitor's SystemBars injects --safe-area-inset-* for
+     WebViews whose env() is unreliable, and passes real env() values through on
+     newer ones. Taking the larger of the two is correct under both, and reading
+     only env() is what let the status bar overlap the header. */
+  --safe-top: max(var(--safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
+  --safe-bottom: max(var(--safe-area-inset-bottom, 0px), env(safe-area-inset-bottom, 0px));
+  --safe-left: max(var(--safe-area-inset-left, 0px), env(safe-area-inset-left, 0px));
+  --safe-right: max(var(--safe-area-inset-right, 0px), env(safe-area-inset-right, 0px));
+
   /* Layout */
   --app-w: 480px;
   --tabbar-h: 62px;

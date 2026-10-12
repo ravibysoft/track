@@ -121,9 +121,9 @@ textarea {
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   padding: 0 var(--sp-4);
-  /* Clears the tab bar plus the 18px that the raised Add circle rises above it,
-     so the last row in a list is never hidden behind either. */
-  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-6));
+  /* Clears the floating bar: the gap it sits above, its own height, and the
+     26px the raised Add circle rises past its top edge. */
+  padding-bottom: calc(var(--safe-bottom) + var(--tabbar-h) + 52px);
 }
 
 .screen::-webkit-scrollbar {
@@ -151,7 +151,7 @@ textarea {
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 88px);
+  padding-bottom: calc(var(--safe-bottom) + var(--tabbar-h) + 52px);
 }
 
 .screen__scroll::-webkit-scrollbar {
@@ -228,7 +228,7 @@ textarea {
 
 /* ---------- Header ---------- */
 .appbar {
-  padding: calc(env(safe-area-inset-top) + var(--sp-5)) 0 var(--sp-4);
+  padding: calc(var(--safe-top) + var(--sp-5)) 0 var(--sp-4);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -568,21 +568,70 @@ textarea {
 }
 
 /* ---------- Tab bar ---------- */
+/* Opaque strips behind the status bar and the navigation buttons.
+ *
+ * Android 15 and up force every app edge to edge and make the system bars
+ * transparent, so the app is genuinely drawn underneath them. Padding keeps
+ * content from *starting* under the clock, but the scroll area still reaches the
+ * top of the screen — so anything scrolled up passes behind the bars and shows
+ * through them. These cover that strip in the page colour.
+ *
+ * Both are zero-height wherever there are no insets (any desktop browser), so
+ * they cost nothing there.
+ */
+.scrim-top {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--safe-top);
+  background: var(--bg);
+  pointer-events: none;
+  /* Above the add/edit page (45) so its scrolling body cannot bleed into the
+     status bar either; below dialogs, toasts, the lock and the welcome screen,
+     which are full-screen and pad themselves. */
+  z-index: 46;
+}
+
+.scrim-bottom {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--safe-bottom);
+  background: var(--bg);
+  pointer-events: none;
+  /* Below the floating tab bar (25): the bar sits in front of this strip, the
+     list scrolls behind it. */
+  z-index: 20;
+}
+
+/* A floating pill rather than a bar welded to the bottom edge.
+   Two reasons. The gesture bar already owns the very bottom of the screen, and a
+   full-width bar butted against it reads as part of the system, not the app. And
+   lifting it clear lets the list scroll visibly underneath, which is the cue
+   that there is more below. */
 .tabbar {
   position: fixed;
   z-index: 25;
-  bottom: 0;
-  width: 100%;
-  max-width: var(--app-w);
-  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
+  left: 0;
+  right: 0;
+  bottom: calc(var(--safe-bottom) + var(--sp-2));
+  width: calc(100% - var(--sp-4) * 2);
+  max-width: calc(var(--app-w) - var(--sp-4) * 2);
+  margin: 0 auto;
+  height: var(--tabbar-h);
   display: grid;
   /* Auto columns, not a hardcoded 4 — the bar went from four tabs to three. */
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(18px) saturate(140%);
-  border-top: 1px solid var(--border);
+  align-items: center;
+  padding: 0 var(--sp-1);
+  border-radius: 26px;
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-3);
 }
 
 .tabbar__btn {
@@ -592,29 +641,19 @@ textarea {
   align-items: center;
   justify-content: center;
   gap: 3px;
+  height: 52px;
+  border-radius: 18px;
   color: var(--text-faint);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  transition: color 0.18s;
+  transition: color 0.18s, background 0.18s;
 }
 
-/* A short bar that springs out under the top edge of the active tab. */
-.tabbar__btn::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 20px;
-  height: 2.5px;
-  border-radius: 0 0 3px 3px;
-  background: var(--accent);
-  transform: translateX(-50%) scaleX(0);
-  transition: transform 0.3s var(--ease-spring);
-}
-
-.tabbar__btn.is-active::before {
-  transform: translateX(-50%) scaleX(1);
+/* The active tab is marked by a soft pill behind it. The old underline hung off
+   the bar's top edge, which no longer exists now that the bar is rounded. */
+.tabbar__btn.is-active {
+  background: var(--accent-soft);
 }
 
 .tabbar__btn svg {
@@ -717,7 +756,7 @@ textarea {
   display: flex;
   gap: var(--sp-3);
   padding: var(--sp-4) var(--sp-5);
-  padding-bottom: calc(env(safe-area-inset-bottom) + var(--sp-4));
+  padding-bottom: calc(var(--safe-bottom) + var(--sp-4));
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
@@ -785,7 +824,7 @@ textarea.input {
   position: fixed;
   z-index: 60;
   left: 50%;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + var(--sp-4));
+  bottom: calc(var(--safe-bottom) + var(--tabbar-h) + var(--sp-5));
   transform: translateX(-50%);
   width: calc(100% - var(--sp-8));
   max-width: calc(var(--app-w) - var(--sp-8));

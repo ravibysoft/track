@@ -3,7 +3,13 @@ import { runAutoBackup } from "../lib/backup.js";
 import { setCategoryRegistry } from "../lib/categories.js";
 import { todayKey } from "../lib/dates.js";
 import * as db from "../lib/db.js";
-import { flushSave, installFlushHooks, readDoc, scheduleSave } from "../lib/storage.js";
+import {
+  flushSave,
+  installFlushHooks,
+  readDoc,
+  requestPersistence,
+  scheduleSave,
+} from "../lib/storage.js";
 import { ExpenseContext } from "./useExpenses.js";
 
 export function ExpenseProvider({ children }) {
@@ -57,6 +63,12 @@ export function ExpenseProvider({ children }) {
   }, [doc, loaded]);
 
   useEffect(() => installFlushHooks(), []);
+
+  /* Ask once that this origin's storage not be evicted under pressure. The
+     answer does not change what the app does, so nothing waits on it. */
+  useEffect(() => {
+    void requestPersistence();
+  }, []);
 
   /* One snapshot a day into the public folder, so a lost phone is not a lost
      year. It runs after the first paint and never blocks it: the app opening is

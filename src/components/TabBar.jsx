@@ -11,17 +11,12 @@ const TABS = [
  * Four destinations plus a raised Add button in the fifth slot.
  *
  * Add sits in the bar rather than floating over the list, so it never covers a
- * row's amount the way the old floating button did.
+ * row's amount the way the old floating button did. The bar itself is a pill
+ * lifted clear of the gesture bar — see .tabbar in global.css.
  */
 export default function TabBar({ active, onChange, onAdd }) {
   return (
-    <nav
-      className="tabbar"
-      style={{
-        "--tab-index": Math.max(0, TABS.findIndex((t) => t.id === active)),
-        "--tab-count": TABS.length + 1,
-      }}
-    >
+    <nav className="tabbar">
       {TABS.map((tab) => (
         <button
           key={tab.id}

@@ -13,6 +13,10 @@
  */
 
 import { JSDOM } from "jsdom";
+/* The app stores its document in IndexedDB, which jsdom does not implement.
+   fake-indexeddb is a real implementation over memory, so these tests exercise
+   the same code path the phone does rather than a stubbed one. */
+import "fake-indexeddb/auto";
 
 
 
@@ -192,6 +196,25 @@ async function type(el, value) {
 
 
 
+/* The store is asynchronous now, so tests ask it rather than reading a string
+   out of localStorage. Both go through the app's own adapter, which is the
+   point: a test that pokes at the raw store stops proving anything the moment
+   the store changes. */
+const storage = await import("../src/lib/storage.js");
+
+const readStored = () => storage.readDoc();
+
+async function seedDoc(doc) {
+  await storage.writeDoc(doc);
+}
+
+async function clearStored() {
+  localStorage.removeItem("rozkharcha.v1");
+  localStorage.removeItem("track.v1");
+  const { deleteDB } = await import("idb");
+  await deleteDB("rozkharcha").catch(() => {});
+}
+
 /* Long enough to cover the sheet close animation (190ms) and the debounced save (200ms). */
 
 const settle = (ms = 280) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
@@ -356,7 +379,7 @@ check("today's total updates", $$(".balance__statValue")[1]?.textContent.trim() 
 
 check("confirmation toast shows", text(".snackbar").includes("Expense added"));
 
-check("persisted to storage", (localStorage.getItem("rozkharcha.v1") ?? "").includes("Lunch at office"));
+check("persisted to storage", JSON.stringify(await readStored()).includes("Lunch at office"));
 
 
 
@@ -676,7 +699,7 @@ console.log("Legacy key migration");
 
 await act(async () => root2.unmount());
 
-localStorage.removeItem("rozkharcha.v1");
+await clearStored();
 
 localStorage.setItem(
 
@@ -712,7 +735,7 @@ await settle();
 
 check("data saved under the old name still loads", !!byText(".row__title", "Old auto fare"));
 
-check("it moved to the new key", (localStorage.getItem("rozkharcha.v1") ?? "").includes("Old auto fare"));
+check("the old key is carried into the new store", JSON.stringify(await readStored()).includes("Old auto fare"));
 
 check("the old key is cleaned up", localStorage.getItem("track.v1") === null);
 
@@ -992,8 +1015,7 @@ console.log("Income + calendar in the UI");
   // The migration section left its root mounted; without unmounting it every
   // document.querySelector below would hit *that* tree instead of this one.
   await act(async () => root3.unmount());
-  localStorage.removeItem("rozkharcha.v1");
-  localStorage.removeItem("track.v1");
+  await clearStored();
   // A fresh container: re-using #root would warn about calling createRoot twice.
   const uiHost = document.createElement("div");
   document.body.appendChild(uiHost);
@@ -1442,9 +1464,7 @@ console.log("Empty states");
    Where there is an obvious next step it is offered right there — except while
    searching, when "add an entry" would answer a question nobody asked. */
 {
-  localStorage.removeItem("rozkharcha.v1");
-
-  localStorage.removeItem("track.v1");
+  await clearStored();
 
   const emptyHost = document.createElement("div");
 
@@ -1652,16 +1672,13 @@ console.log("Add again in the UI");
   const d = new Date();
   d.setDate(d.getDate() - 1);
   const y = toKey(d);
-  localStorage.setItem(
-    "rozkharcha.v1",
-    JSON.stringify({
-      settings: { onboarded: true },
-      expenses: [
-        { id: "a1", type: "expense", amount: 20, categoryId: "food", note: "Chai", paymentMode: "upi", date: y, createdAt: `${y}T09:00:00Z`, updatedAt: `${y}T09:00:00Z` },
-        { id: "a2", type: "expense", amount: 20, categoryId: "food", note: "Chai", paymentMode: "upi", date: t, createdAt: `${t}T09:00:00Z`, updatedAt: `${t}T09:00:00Z` },
-      ],
-    }),
-  );
+  await seedDoc({
+    settings: { onboarded: true },
+    expenses: [
+      { id: "a1", type: "expense", amount: 20, categoryId: "food", note: "Chai", paymentMode: "upi", date: y, createdAt: `${y}T09:00:00Z`, updatedAt: `${y}T09:00:00Z` },
+      { id: "a2", type: "expense", amount: 20, categoryId: "food", note: "Chai", paymentMode: "upi", date: t, createdAt: `${t}T09:00:00Z`, updatedAt: `${t}T09:00:00Z` },
+    ],
+  });
 
   const qHost = document.createElement("div");
   document.body.appendChild(qHost);
@@ -1680,17 +1697,17 @@ console.log("Add again in the UI");
 
   const rows = qHost.querySelectorAll(".row").length;
   check("one tap adds it", rows === Math.min(before + 1, 5), `${before} → ${rows} rows`);
-  check("dated today", JSON.parse(localStorage.getItem("rozkharcha.v1")).expenses.filter((x) => x.note === "Chai" && x.date === t).length === 2);
+  check("dated today", (await readStored()).expenses.filter((x) => x.note === "Chai" && x.date === t).length === 2);
   check("and says so, with Undo", /Added Chai/.test(qHost.querySelector(".snackbar")?.textContent ?? document.body.textContent));
 
   const undo = [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Undo");
   await click(undo, "Undo");
   await settle();
-  check("Undo takes back exactly that entry", JSON.parse(localStorage.getItem("rozkharcha.v1")).expenses.length === 2);
+  check("Undo takes back exactly that entry", (await readStored()).expenses.length === 2);
 
   await act(async () => qRoot.unmount());
   qHost.remove();
-  localStorage.removeItem("rozkharcha.v1");
+  await clearStored();
 }
 
 console.log("");
@@ -1757,7 +1774,7 @@ console.log("App lock");
   /* The whole screen, locked from the first paint. */
   lock.clearLock();
   await lock.setPin("2468");
-  localStorage.setItem("rozkharcha.v1", JSON.stringify({ settings: { onboarded: true }, expenses: [] }));
+  await seedDoc({ settings: { onboarded: true }, expenses: [] });
 
   const lHost = document.createElement("div");
   document.body.appendChild(lHost);
@@ -1784,7 +1801,7 @@ console.log("App lock");
   await act(async () => lRoot.unmount());
   lHost.remove();
   lock.clearLock();
-  localStorage.removeItem("rozkharcha.v1");
+  await clearStored();
 }
 
 console.log("");
@@ -1826,7 +1843,7 @@ console.log("First launch");
   check("anyone with entries is past it", dbm.migrate({ expenses: [{ amount: 5, categoryId: "food", date: "2026-01-01" }] }).settings.onboarded === true);
   check("so is anyone who set their name", dbm.migrate({ settings: { name: "Asha" } }).settings.onboarded === true);
 
-  localStorage.removeItem("rozkharcha.v1");
+  await clearStored();
   const wHost = document.createElement("div");
   document.body.appendChild(wHost);
   const wRoot = createRoot(wHost);
@@ -1850,15 +1867,142 @@ console.log("First launch");
   check("in their currency", wHost.querySelector(".home__badge")?.textContent.trim() === "$");
   check("with their budget", /\$2,000/.test(wHost.querySelector(".balance__budget")?.textContent ?? ""), wHost.querySelector(".balance__budget")?.textContent);
 
-  const saved = JSON.parse(localStorage.getItem("rozkharcha.v1")).settings;
+  const saved = (await readStored()).settings;
   check("and it never shows again", saved.onboarded === true);
 
   await act(async () => wRoot.unmount());
   wHost.remove();
-  localStorage.removeItem("rozkharcha.v1");
+  await clearStored();
 }
 
 console.log("");
+
+console.log("Edge-to-edge insets");
+
+/* Android draws this app behind the status bar and the gesture bar. If a rule
+   reads env(safe-area-inset-*) directly it gets 0 on WebViews whose env()
+   support is missing, and the clock ends up sitting on top of the header. Every
+   rule has to go through the tokens, which take whichever of the two sources
+   actually reported something. */
+{
+  const { readFileSync } = await import("node:fs");
+
+  const tokens = readFileSync("src/styles/tokens.css", "utf8");
+
+  for (const side of ["top", "bottom", "left", "right"]) {
+    const declared = new RegExp(`--safe-${side}:\\s*max\\(\\s*var\\(--safe-area-inset-${side}[^)]*\\)\\s*,\\s*env\\(safe-area-inset-${side}`).test(tokens);
+    check(`--safe-${side} reads both sources`, declared);
+  }
+
+  const raw = [];
+  for (const file of ["src/styles/global.css", "src/styles/parts.css"]) {
+    const css = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const m of css.matchAll(/env\(safe-area-inset-\w+/g)) raw.push(`${file}: ${m[0]})`);
+  }
+  check("no rule reads env() on its own", raw.length === 0, raw.join(" · "));
+
+  /* The bar floats clear of the gesture bar instead of sitting under it. */
+  const sheet = readFileSync("src/styles/global.css", "utf8");
+  const bar = /\.tabbar\s*\{[^}]*\}/.exec(sheet)?.[0] ?? "";
+  check("the tab bar is lifted off the bottom edge", /bottom:\s*calc\(var\(--safe-bottom\)/.test(bar), bar.slice(0, 80));
+  check("and is a rounded pill, not a full-width bar", /border-radius:/.test(bar) && /max-width:/.test(bar));
+
+  /* Padding stops content *starting* under the bars, but the scroll area still
+     reaches the screen edges, so scrolled content passes behind the transparent
+     system bars and shows through. These strips cover that. */
+  const allCss = sheet + "\n" + readFileSync("src/styles/parts.css", "utf8");
+
+  /* Anchored to the start of a line, or `.scrim-bottom` also matches the grouped
+     rule above it and `.page` matches `.page__bar`. Both files, because the
+     layers being compared are not declared in the same one. */
+  const ruleFor = (name) => new RegExp(`^\\.${name}\\s*\\{[^}]*\\}`, "m").exec(allCss)?.[0] ?? "";
+  const layer = (name) => Number(/z-index:\s*(\d+)/.exec(ruleFor(name))?.[1] ?? NaN);
+
+  check("a strip covers the status bar", /height:\s*var\(--safe-top\)/.test(ruleFor("scrim-top")), ruleFor("scrim-top").slice(0, 70));
+
+  check("and one covers the navigation buttons", /height:\s*var\(--safe-bottom\)/.test(ruleFor("scrim-bottom")), ruleFor("scrim-bottom").slice(0, 70));
+
+  check(
+    "both are painted in the page colour",
+    ["scrim-top", "scrim-bottom"].every((n) => /background:\s*var\(--bg\)/.test(ruleFor(n))),
+  );
+
+  check(
+    "neither ever swallows a tap",
+    ["scrim-top", "scrim-bottom"].every((n) => /pointer-events:\s*none/.test(ruleFor(n))),
+  );
+
+  /* Layering is the whole trick: over the add page, under the floating bar. */
+  check("the top strip sits over the add page", layer("scrim-top") > layer("page"), `${layer("scrim-top")} vs page ${layer("page")}`);
+
+  check("the bottom strip sits under the tab bar", layer("scrim-bottom") < layer("tabbar"), `${layer("scrim-bottom")} vs tabbar ${layer("tabbar")}`);
+
+  check("and both stay under the lock screen", layer("scrim-top") < layer("lock"), `${layer("scrim-top")} vs lock ${layer("lock")}`);
+}
+
+console.log("Local database");
+
+/* The document lives in IndexedDB now. These check that it really does — a
+   fallback that quietly wrote to localStorage instead would pass every other
+   test in this file without anyone noticing. */
+{
+  const { openDB, deleteDB } = await import("idb");
+
+  /* Every raw handle is closed again: an open connection blocks deleteDB, and a
+     test that hangs is worse than one that fails. */
+  const peek = async () => {
+    const handle = await openDB("rozkharcha", 1);
+    const value = await handle.get("doc", "main");
+    handle.close();
+    return value;
+  };
+
+  const withinTime = (promise, ms, label) =>
+    Promise.race([
+      promise.then(() => true),
+      new Promise((resolve) => setTimeout(() => resolve(`timed out: ${label}`), ms)),
+    ]);
+
+  await clearStored();
+
+  const doc = { version: 1, expenses: [{ id: "x", amount: 7, categoryId: "food", date: todayKey() }], settings: { name: "Asha" } };
+  await storage.writeDoc(doc);
+
+  const raw = await peek();
+  check("the document is written to IndexedDB", raw?.expenses?.[0]?.id === "x", JSON.stringify(raw)?.slice(0, 60));
+
+  check("and not left behind in localStorage", localStorage.getItem("rozkharcha.v1") === null);
+
+  /* Stored as an object, not a JSON string: that is the point of the move. */
+  check("it is stored as an object, not as text", typeof raw === "object" && Array.isArray(raw.expenses));
+
+  check("the adapter reads it back", (await storage.readDoc()).expenses[0].amount === 7);
+
+  /* The adapter holds its connection open. Another tab upgrading or deleting
+     the database would be blocked by it forever unless it lets go, which is
+     what its `blocking` handler is for. */
+  check(
+    "it releases the database when something else needs it",
+    (await withinTime(deleteDB("rozkharcha"), 3000, "deleteDB while the app holds it")) === true,
+  );
+
+  /* Anyone updating the app has their entries in the old localStorage key. */
+  localStorage.setItem("rozkharcha.v1", JSON.stringify({ expenses: [{ id: "old", amount: 99, categoryId: "food", date: todayKey() }] }));
+
+  const carried = await storage.readDoc();
+  check("an older localStorage store is carried over", carried?.expenses?.[0]?.id === "old", JSON.stringify(carried)?.slice(0, 60));
+
+  check("and copied into IndexedDB for next time", (await peek())?.expenses?.[0]?.id === "old");
+
+  /* Deliberately not deleted: if IndexedDB is ever cleared, this is the copy
+     that saves the data. */
+  check("the old copy is left where it was", localStorage.getItem("rozkharcha.v1") !== null);
+
+  check("asking for persistent storage never throws", (await storage.requestPersistence(), true));
+
+  await clearStored();
+  check("a cleared store reads as a first run", (await storage.readDoc()) === null);
+}
 
 console.log("Crash recovery");
 /* Without a boundary, one throwing screen unmounts the whole tree and the app is

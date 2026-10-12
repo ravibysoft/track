@@ -795,7 +795,7 @@
   display: flex;
   align-items: center;
   gap: var(--sp-1);
-  padding: calc(env(safe-area-inset-top) + var(--sp-4)) 0 var(--sp-2);
+  padding: calc(var(--safe-top) + var(--sp-4)) 0 var(--sp-2);
 }
 
 .period-bar .icon-btn {
@@ -1217,7 +1217,7 @@
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: calc(env(safe-area-inset-top) + var(--sp-3)) var(--sp-4) var(--sp-3);
+  padding: calc(var(--safe-top) + var(--sp-3)) var(--sp-4) var(--sp-3);
   border-bottom: 1px solid var(--border);
 }
 
@@ -1233,9 +1233,9 @@
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  scroll-padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(84px + var(--safe-bottom));
   padding: var(--sp-4) var(--sp-4)
-    calc(var(--sp-6) + 84px + env(safe-area-inset-bottom));
+    calc(var(--sp-6) + 84px + var(--safe-bottom));
 }
 
 .page__foot {
@@ -1243,7 +1243,7 @@
   display: flex;
   gap: var(--sp-3);
   padding: var(--sp-4);
-  padding-bottom: calc(env(safe-area-inset-bottom) + var(--sp-4));
+  padding-bottom: calc(var(--safe-bottom) + var(--sp-4));
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
@@ -1447,7 +1447,7 @@
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: calc(env(safe-area-inset-top) + var(--sp-4)) 0 var(--sp-5);
+  padding: calc(var(--safe-top) + var(--sp-4)) 0 var(--sp-5);
 }
 
 .home__badge {
@@ -1703,13 +1703,15 @@
 .tabbar__addCircle {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  margin-top: -18px;
+  width: 50px;
+  height: 50px;
+  margin-top: -26px;
   border-radius: 50%;
   background: var(--accent);
   color: var(--on-accent);
-  box-shadow: var(--shadow-fab);
+  /* A ring in the page colour, so the circle reads as sitting in front of the
+     bar rather than welded into it. */
+  box-shadow: 0 0 0 5px var(--bg), var(--shadow-fab);
   transition: transform 0.14s var(--ease-out);
 }
 
@@ -1718,8 +1720,8 @@
 }
 
 .tabbar__addCircle svg {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
 }
 
 /* Over budget with no income logged: the headline is an overspend, so it should
@@ -2362,8 +2364,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: calc(env(safe-area-inset-top) + var(--sp-8)) var(--sp-6)
-    calc(env(safe-area-inset-bottom) + var(--sp-5));
+  padding: calc(var(--safe-top) + var(--sp-8)) var(--sp-6)
+    calc(var(--safe-bottom) + var(--sp-5));
   background: var(--bg);
   color: var(--text);
   animation: fade-in 0.2s var(--ease-out) both;
@@ -2492,8 +2494,8 @@
   z-index: 90;
   display: flex;
   flex-direction: column;
-  padding: calc(env(safe-area-inset-top) + var(--sp-5)) var(--sp-5)
-    calc(env(safe-area-inset-bottom) + var(--sp-5));
+  padding: calc(var(--safe-top) + var(--sp-5)) var(--sp-5)
+    calc(var(--safe-bottom) + var(--sp-5));
   background: var(--bg);
   color: var(--text);
   overflow-y: auto;
