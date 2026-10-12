@@ -647,13 +647,16 @@ textarea {
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  transition: color 0.18s, background 0.18s;
+  /* No background here: the pill behind the active tab is one travelling element
+     drawn by .tabbar::before, so it slides between slots instead of one button's
+     fill popping off while the next pops on. */
+  transition: color 0.18s, transform 0.18s var(--ease-out);
 }
 
-/* The active tab is marked by a soft pill behind it. The old underline hung off
-   the bar's top edge, which no longer exists now that the bar is rounded. */
-.tabbar__btn.is-active {
-  background: var(--accent-soft);
+/* Presses in under the thumb. The bar is the most-tapped surface in the app and
+   was the only one giving nothing back. Add already presses its own circle. */
+.tabbar__btn:active {
+  transform: scale(0.92);
 }
 
 .tabbar__btn svg {
@@ -747,8 +750,17 @@ textarea {
 .sheet__body {
   flex: 1;
   overflow-y: auto;
-  padding: var(--sp-3) var(--sp-5) 0;
+  /* Clears the navigation buttons. Keep this on the default rather than adding
+     it only for footless sheets: if the attribute ever stops arriving, the worst
+     case is a roomy gap above a footer, not a button you cannot tap. */
+  padding: var(--sp-3) var(--sp-5) calc(var(--safe-bottom) + var(--sp-5));
   -webkit-overflow-scrolling: touch;
+}
+
+/* The footer sits below the body and carries the inset itself, so the body
+   would otherwise reserve the same space twice. */
+.sheet[data-foot="yes"] .sheet__body {
+  padding-bottom: 0;
 }
 
 .sheet__foot {

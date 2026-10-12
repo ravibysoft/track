@@ -1798,6 +1798,29 @@ console.log("App lock");
   await typePin("2468");
   check("the right PIN opens it", !lHost.querySelector(".lock"));
 
+  /* The screen the sheet was reported from: Settings → App lock, lock already
+     on, so the sheet opens on its options with no footer. Its last button sat
+     on the navigation buttons, which on Android are drawn over the app. */
+  await click(lHost.querySelector('[aria-label="Settings"]'), "Settings gear");
+  await settle();
+
+  await click([...lHost.querySelectorAll("button")].find((b) => /app lock/i.test(b.textContent)), "App lock");
+  await settle();
+
+  const lockSheet = document.querySelector(".sheet");
+  check("the lock sheet opens from Settings", !!lockSheet && !lockSheet.querySelector(".sheet__foot"));
+
+  check("and insets its own body, having no footer", lockSheet?.dataset.foot === "no", lockSheet?.dataset.foot);
+
+  const sheetButtons = [...(lockSheet?.querySelectorAll(".sheet__body button") ?? [])];
+  check("the button that was unreachable is the last one", /turn off app lock/i.test(sheetButtons.at(-1)?.textContent ?? ""), sheetButtons.at(-1)?.textContent);
+
+  /* A footer takes the job back, so the two must not both reserve the space. */
+  await click(sheetButtons.find((b) => /change pin/i.test(b.textContent)), "Change PIN");
+  await settle();
+
+  check("a stage with a footer hands the inset over", document.querySelector(".sheet")?.dataset.foot === "yes", document.querySelector(".sheet")?.dataset.foot);
+
   await act(async () => lRoot.unmount());
   lHost.remove();
   lock.clearLock();
@@ -1938,6 +1961,145 @@ console.log("Edge-to-edge insets");
   check("the bottom strip sits under the tab bar", layer("scrim-bottom") < layer("tabbar"), `${layer("scrim-bottom")} vs tabbar ${layer("tabbar")}`);
 
   check("and both stay under the lock screen", layer("scrim-top") < layer("lock"), `${layer("scrim-top")} vs lock ${layer("lock")}`);
+
+  /* Standing sweep, not a list of today's fixes: anything pinned to the bottom
+     of the screen, or scrolling to it, has to reserve the navigation buttons'
+     strip — otherwise its last control is the one you cannot tap. A new surface
+     that forgets fails here instead of shipping. */
+  const rules = [...allCss.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .map(([, head, body]) => ({ head: head.trim(), body: body.replace(/\s+/g, " ") }))
+    .filter(({ head }) => !head.startsWith("@") && !head.startsWith("to") && !head.startsWith("from"));
+
+  /* Exempt because none of them puts a control at the bottom edge itself: the
+     strip IS the inset, the backdrop is a dim layer, and the sheet and the page
+     both hand the job to the body and footer they contain. */
+  const delegates = [".scrim-bottom", ".backdrop", ".sheet", ".page"];
+
+  /* Pinned to the bottom, or filling the screen — a full-screen overlay is a
+     page, and its own padding is all that keeps its content off the buttons.
+     Absolutely positioned markers are anchored inside their own component
+     rather than the screen, so only `fixed` counts. */
+  const pinned = rules.filter(
+    ({ head, body }) =>
+      /position:\s*fixed/.test(body) &&
+      /(^|[\s;])(bottom:|inset:\s*0)/.test(body) &&
+      !delegates.includes(head),
+  );
+
+  check("every bar pinned to the bottom clears the buttons", pinned.length > 2 && pinned.every(({ body }) => /safe-bottom/.test(body)), pinned.filter(({ body }) => !/safe-bottom/.test(body)).map(({ head }) => head).join(" · ") || `${pinned.length} checked`);
+
+  const scrollers = rules.filter(({ body }) => /overflow(-y)?:\s*(auto|scroll)/.test(body));
+
+  check("and every scroll region ends above them", scrollers.length > 0 && scrollers.every(({ body }) => /safe-bottom/.test(body)), scrollers.filter(({ body }) => !/safe-bottom/.test(body)).map(({ head }) => head).join(" · ") || `${scrollers.length} checked`);
+
+  /* A sheet reaches the bottom edge, so a footless one — the lock sheet's first
+     stage — has nothing between its last button and the navigation buttons. */
+  const sheetBody = /^\.sheet__body\s*\{[^}]*\}/m.exec(allCss)?.[0] ?? "";
+  check("a sheet without a footer insets its own body", /padding:[^;]*var\(--safe-bottom\)/.test(sheetBody), sheetBody.replace(/\s+/g, " ").slice(0, 90));
+
+  check("and gives the space back when a footer owns it", /\.sheet\[data-foot="yes"\]\s+\.sheet__body\s*\{\s*padding-bottom:\s*0/.test(allCss));
+
+  /* Centred, so it only reaches the buttons when it is tall — which is exactly
+     when it is a confirmation whose buttons are at the bottom. */
+  check("centred dialogs centre inside the usable area", /\.dialog-wrap\s*\{[^}]*padding:[^;]*var\(--safe-top\)[^;]*var\(--safe-bottom\)/.test(allCss));
+}
+
+console.log("Sliding indicators");
+
+/* Every tab control in the app marks the active option with ONE element that
+   travels to it, so the mark slides instead of popping across. That only works
+   while the component keeps feeding the index to the stylesheet: the pill is
+   drawn by a pseudo-element, so if the variables stop arriving it silently
+   parks on the first slot and nothing else looks wrong. That is exactly the
+   regression these checks exist to catch. */
+{
+  const slideHost = document.createElement("div");
+
+  document.body.appendChild(slideHost);
+
+  const slideRoot = createRoot(slideHost);
+
+  await act(async () => {
+    slideRoot.render(createElement(StrictMode, null, createElement(ExpenseProvider, null, createElement(App))));
+  });
+
+  await settle();
+
+  const bar = slideHost.querySelector(".tabbar");
+  const at = () => bar.style.getPropertyValue("--tab-index").trim();
+
+  const toTab = async (name) => {
+    await click([...slideHost.querySelectorAll(".tabbar__btn")].find((b) => b.textContent.includes(name)), name);
+    await act(async () => { await new Promise((r) => setTimeout(r, 450)); });
+  };
+
+  check("the bar tells the pill where to go", at() === "0", `--tab-index "${at()}"`);
+
+  /* Five, not four: Add holds the last slot, and a step of one column only
+     lands on the next tab if the column count includes it. */
+  check("and counts the Add slot in the step width", bar.style.getPropertyValue("--tab-count").trim() === "5", bar.style.getPropertyValue("--tab-count"));
+
+  await toTab("Stats");
+
+  check("the pill follows to Stats", at() === "2", `--tab-index "${at()}"`);
+
+  await toTab("Trans.");
+
+  check("and back to Trans.", at() === "1", `--tab-index "${at()}"`);
+
+  check("the pill is showing while a tab owns it", bar.dataset.pill === "on", bar.dataset.pill);
+
+  /* Settings is opened by the gear, so no slot in the bar owns it. Leaving the
+     pill parked on Home would claim you were still on Home. */
+  await click(slideHost.querySelector('[aria-label="Settings"]'), "Settings gear");
+  await act(async () => { await new Promise((r) => setTimeout(r, 450)); });
+
+  check("but hides on Settings, which has no slot", slideHost.querySelector(".tabbar").dataset.pill === "off", slideHost.querySelector(".tabbar").dataset.pill);
+
+  await act(async () => slideRoot.unmount());
+  slideHost.remove();
+}
+
+/* The three sliders share one curve, and each has to measure its own padding:
+   a percentage width on an absolutely positioned child resolves against the
+   padding box, but the columns it is lining up with sit inside the padding. Get
+   that wrong and the mark is a few pixels too wide and drifts further off its
+   label with every step — worst on the four-tab strip. */
+{
+  const { readFileSync } = await import("node:fs");
+
+  const css = [readFileSync("src/styles/global.css", "utf8"), readFileSync("src/styles/parts.css", "utf8")].join("\n");
+
+  /* Every rule a selector appears in, not just the first: these are declared
+     more than once — parts.css overrides global.css, and some heads group
+     several selectors — so one match could miss a later contradiction. */
+  const rulesFor = (selector) =>
+    [...css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .filter(([, head]) => head.split(",").some((one) => one.trim() === selector))
+      .map(([, , body]) => body.trim().replace(/\s+/g, " "));
+
+  const ruleFor = (selector) => rulesFor(selector)[0] ?? "";
+
+  const travellers = [".tabbar::before", ".tabstrip::after", ".seg::before"];
+
+  for (const selector of travellers) {
+    const rule = ruleFor(selector);
+    check(`${selector} moves by transform`, /transform:\s*translateX\(calc\(var\(--(tab|seg)-index/.test(rule), rule.slice(0, 60));
+    check(`${selector} eases on the shared curve`, /transition:\s*transform[^;]*var\(--ease-travel\)/.test(rule), rule.slice(0, 60));
+    check(`${selector} subtracts its own padding`, /width:\s*calc\(\s*\(?100% -/.test(rule), rule.slice(0, 60));
+  }
+
+  /* One sliding pill, so the buttons must not paint their own — two fills would
+     read as a jump, not a journey. */
+  check("no tab paints its own background", rulesFor(".tabbar__btn.is-active").every((rule) => !/background/.test(rule)), rulesFor(".tabbar__btn.is-active").join(" | "));
+
+  check("and the buttons sit above the pill", rulesFor(".tabbar__btn").some((rule) => /z-index:\s*1/.test(rule)), rulesFor(".tabbar__btn").join(" | ").slice(0, 90));
+
+  /* .seg--mini is tighter than the standard segmented control; the pill reads
+     its spacing from variables so both stay square with their segments. */
+  check("the compact segmented control retunes the pill", /--seg-pad:\s*2px/.test(ruleFor(".seg--mini")), ruleFor(".seg--mini"));
+
+  check("a press gives something back", /transform:\s*scale\(0\.9/.test(ruleFor(".tabbar__btn:active")), ruleFor(".tabbar__btn:active"));
 }
 
 console.log("Local database");

@@ -44,6 +44,11 @@ export default function Sheet({ title, onClose, children, footer, headerRight })
       <div className="backdrop" onClick={close} />
       <div
         className={`sheet${closing ? " is-closing" : ""}`}
+        /* The sheet reaches the bottom of the screen, which on Android is under
+           the navigation buttons. A footer holds the inset for its own buttons;
+           without one the body's last control is what ends up under them, so it
+           has to hold the inset instead. */
+        data-foot={footer ? "yes" : "no"}
         role="dialog"
         aria-modal="true"
         aria-label={title}

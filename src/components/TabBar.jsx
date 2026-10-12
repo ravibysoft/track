@@ -15,8 +15,17 @@ const TABS = [
  * lifted clear of the gesture bar — see .tabbar in global.css.
  */
 export default function TabBar({ active, onChange, onAdd }) {
+  /* Drives the pill that slides between slots (.tabbar::before). The count
+     includes the Add slot so a step of one column lands on the next tab, and
+     Settings — opened from the gear — has no slot, so the pill hides. */
+  const index = TABS.findIndex((tab) => tab.id === active);
+
   return (
-    <nav className="tabbar">
+    <nav
+      className="tabbar"
+      data-pill={index < 0 ? "off" : "on"}
+      style={{ "--tab-index": index < 0 ? 0 : index, "--tab-count": TABS.length + 1 }}
+    >
       {TABS.map((tab) => (
         <button
           key={tab.id}
