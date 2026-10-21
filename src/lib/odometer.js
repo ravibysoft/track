@@ -41,17 +41,22 @@ export function validLitres(value) {
 }
 
 /**
- * That category's entries carrying a reading, oldest first.
+ * Every entry in that category, oldest first.
  *
  * Ordered by the day it happened and then by when it was written, NOT by the
  * reading itself. Sorting by the reading would quietly hide the one thing worth
  * telling the user about — a reading typed in wrong — by shuffling it into a
  * position where it looks plausible.
  */
-export function readings(expenses, categoryId) {
+function entriesOf(expenses, categoryId) {
   return (Array.isArray(expenses) ? expenses : [])
-    .filter((e) => e && e.categoryId === categoryId && validReading(e.odometer) !== null)
+    .filter((e) => e && e.categoryId === categoryId)
     .sort((a, b) => a.date.localeCompare(b.date) || String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? "")));
+}
+
+/** Those of them carrying a reading. The reading is optional, so this is a subset. */
+export function readings(expenses, categoryId) {
+  return entriesOf(expenses, categoryId).filter((e) => validReading(e.odometer) !== null);
 }
 
 function daysBetween(fromDay, toDay) {
@@ -66,12 +71,22 @@ function daysBetween(fromDay, toDay) {
  * way, so that means one of the two was typed wrong. Everything derived from
  * the distance is then null as well, and `suspect` says why, rather than the
  * screen showing a negative distance or a mileage of −8 km/L.
+ *
+ * `skipped` is how many entries of the same category sit inside the leg with no
+ * reading on them. The reading is optional, so this is the ordinary case, not
+ * an error — but it changes what can honestly be said. The DISTANCE is still
+ * exactly right: it came off the dial. The mileage is not, because the litres
+ * on the closing fill did not carry you the whole way; the fuel bought in
+ * between did some of it. Reporting it anyway would double the figure for one
+ * skipped fill, so a leg with a gap keeps its distance and gives up its mileage
+ * and its cost per km.
  */
-function buildLeg(from, to) {
+function buildLeg(from, to, skipped = 0) {
   const start = validReading(from.odometer);
   const end = validReading(to.odometer);
   const km = end > start ? round2(end - start) : null;
   const litres = validLitres(to.litres);
+  const measurable = km !== null && skipped === 0;
 
   return {
     from,
@@ -80,20 +95,34 @@ function buildLeg(from, to) {
     end,
     km,
     suspect: km === null,
+    skipped,
     days: daysBetween(from.date, to.date),
     litres,
     /* Tank to tank: the fuel bought at the END of the leg is what carried you
        along it, which is the standard way to read mileage off a full-to-full
        fill. A leg with no litres recorded simply has no mileage. */
-    kmPerLitre: km !== null && litres !== null ? round2(km / litres) : null,
-    costPerKm: km !== null && to.amount > 0 ? round2(to.amount / km) : null,
+    kmPerLitre: measurable && litres !== null ? round2(km / litres) : null,
+    costPerKm: measurable && to.amount > 0 ? round2(to.amount / km) : null,
   };
 }
 
-/** Every leg in that category, oldest first. One reading gives none. */
+/**
+ * Every leg in that category, oldest first. One reading gives none.
+ *
+ * The gap between two readings' positions in the full list IS the number of
+ * entries skipped between them, which is why this walks the whole category and
+ * not just the entries carrying a reading.
+ */
 export function legs(expenses, categoryId) {
-  const list = readings(expenses, categoryId);
-  return list.slice(1).map((entry, i) => buildLeg(list[i], entry));
+  const all = entriesOf(expenses, categoryId);
+  const marks = all
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => validReading(entry.odometer) !== null);
+
+  return marks.slice(1).map((mark, i) => {
+    const previous = marks[i];
+    return buildLeg(previous.entry, mark.entry, mark.index - previous.index - 1);
+  });
 }
 
 /**
@@ -106,12 +135,22 @@ export function legs(expenses, categoryId) {
  */
 export function legEndingAt(expenses, entry) {
   if (!entry || validReading(entry.odometer) === null) return null;
-  const before = readings(expenses, entry.categoryId).filter((e) => e.id !== entry.id);
+  const others = entriesOf(expenses, entry.categoryId).filter((e) => e.id !== entry.id);
 
   /* The last reading that is not after this entry's day. Editing an old entry
      then compares it against the entry before IT, not against the newest one. */
-  const previous = [...before].reverse().find((e) => e.date <= entry.date);
-  return previous ? buildLeg(previous, entry) : null;
+  const index = others.findLastIndex(
+    (e) => e.date <= entry.date && validReading(e.odometer) !== null,
+  );
+  if (index < 0) return null;
+
+  /* Entries since that reading, on or before this entry's day, that carry no
+     reading of their own — the fills this leg cannot account for. */
+  const skipped = others
+    .slice(index + 1)
+    .filter((e) => e.date <= entry.date && validReading(e.odometer) === null).length;
+
+  return buildLeg(others[index], entry, skipped);
 }
 
 /**
@@ -126,10 +165,17 @@ export function legEndingAt(expenses, entry) {
 export function summary(expenses, categoryId) {
   const all = legs(expenses, categoryId);
   const usable = all.filter((leg) => leg.km !== null);
-  const fuelled = usable.filter((leg) => leg.litres !== null);
+
+  /* Distance counts every leg it can measure, because a reading left off an
+     entry in the middle does not make the dial wrong. The per-litre and per-km
+     figures count only the legs that account for all their own fuel, so each
+     one divides a distance by exactly the money and litres that covered it. */
+  const measured = usable.filter((leg) => leg.skipped === 0);
+  const fuelled = measured.filter((leg) => leg.litres !== null);
 
   const km = round2(usable.reduce((total, leg) => total + leg.km, 0));
-  const spent = round2(usable.reduce((total, leg) => total + leg.to.amount, 0));
+  const spent = round2(measured.reduce((total, leg) => total + leg.to.amount, 0));
+  const costKm = round2(measured.reduce((total, leg) => total + leg.km, 0));
   const fuelKm = round2(fuelled.reduce((total, leg) => total + leg.km, 0));
   const litres = round2(fuelled.reduce((total, leg) => total + leg.litres, 0));
 
@@ -140,6 +186,9 @@ export function summary(expenses, categoryId) {
     legs: all,
     count: list.length,
     suspectCount: all.filter((leg) => leg.suspect).length,
+    /* Entries with no reading that fall inside a leg. Worth saying out loud:
+       it is why the mileage is based on less driving than the distance shown. */
+    skippedCount: all.reduce((total, leg) => total + leg.skipped, 0),
     last,
     lastReading: last ? validReading(last.odometer) : null,
     km,
@@ -148,7 +197,7 @@ export function summary(expenses, categoryId) {
     /* Null rather than 0 when there is nothing to divide: "—" is honest, "0 km/L"
        is a claim the data does not make. */
     kmPerLitre: litres > 0 && fuelKm > 0 ? round2(fuelKm / litres) : null,
-    costPerKm: km > 0 && spent > 0 ? round2(spent / km) : null,
+    costPerKm: costKm > 0 && spent > 0 ? round2(spent / costKm) : null,
     /* The newest leg is the one worth leading with: the distance you just did. */
     latest: usable.at(-1) ?? null,
   };
@@ -188,5 +237,14 @@ export function describeLeg(leg) {
   const parts = [`${formatKm(leg.km)} since ${shortDayLabel(leg.from.date)}`];
   if (leg.days > 0) parts.push(`${leg.days} ${leg.days === 1 ? "day" : "days"}`);
   if (leg.kmPerLitre !== null) parts.push(formatMileage(leg.kmPerLitre));
+  /* Said plainly, because the alternative is a mileage that silently went
+     missing — or, worse, one that silently doubled. */
+  if (leg.skipped > 0) {
+    parts.push(
+      leg.skipped === 1
+        ? "no mileage — one entry in between has no reading"
+        : `no mileage — ${leg.skipped} entries in between have no reading`,
+    );
+  }
   return parts.join(" · ");
 }

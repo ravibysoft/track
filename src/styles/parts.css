@@ -2763,6 +2763,24 @@
   white-space: nowrap;
 }
 
+/* Not a warning: a reading left off is allowed, and this only explains what
+   the figures above could and could not count. */
+.km__note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+.km__note svg {
+  flex: none;
+  margin-top: 1px;
+}
+
 .km__warn {
   display: flex;
   align-items: flex-start;

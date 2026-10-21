@@ -2052,6 +2052,51 @@ console.log("Kilometre readings");
   check("a reading that goes backwards is refused, not negated", back.km === null && back.suspect === true);
   check("and nothing is derived from it", back.kmPerLitre === null && back.costPerKm === null);
 
+  /* ---- The reading is optional, which is the interesting case ----
+     Nothing requires it, so entries without one are normal. The danger is not
+     that they are missing: it is that a fill in the MIDDLE of a leg, with no
+     reading, makes the closing fill's litres look like they carried the whole
+     distance. One skipped fill doubles the mileage. */
+  const gapped = [
+    fill("2026-09-01", 1000, { litres: 10 }),
+    fill("2026-09-10", undefined, { id: "no-reading", litres: 10 }),
+    fill("2026-09-20", 1600, { id: "third", litres: 10 }),
+  ];
+  const gapLeg = odo.legs(gapped, "petrol")[0];
+
+  check("an entry with no reading is simply not a reading", odo.readings(gapped, "petrol").length === 2);
+  check("the leg spans across it", gapLeg.km === 600, String(gapLeg.km));
+  check("and knows how many it could not account for", gapLeg.skipped === 1, String(gapLeg.skipped));
+
+  /* 600 km on one fill's 10 L would read as 60 km/L. The true figure is 30 —
+     two fills carried it — and the app cannot know the split, so it says
+     nothing rather than something twice too good. */
+  check("a leg with a gap gives up its mileage rather than doubling it", gapLeg.kmPerLitre === null, String(gapLeg.kmPerLitre));
+  check("and gives up its cost per km for the same reason", gapLeg.costPerKm === null, String(gapLeg.costPerKm));
+  check("but the distance is kept, because the dial was not wrong", gapLeg.km === 600);
+  check("and it says why the mileage is missing", /no mileage/.test(odo.describeLeg(gapLeg)), odo.describeLeg(gapLeg));
+
+  const gapStats = odo.summary(gapped, "petrol");
+  check("the distance still counts towards the total", gapStats.km === 600, String(gapStats.km));
+  check("the mileage does not pretend to cover it", gapStats.kmPerLitre === null, String(gapStats.kmPerLitre));
+  check("and the skipped entries are counted so the card can say so", gapStats.skippedCount === 1, String(gapStats.skippedCount));
+
+  /* Fill every reading in and the same three entries measure normally — the
+     guard must not cost anything in the ordinary case. */
+  const complete = () => [
+    fill("2026-09-01", 1000, { litres: 10 }),
+    fill("2026-09-10", 1300, { id: "mid", litres: 10 }),
+    fill("2026-09-20", 1600, { id: "third", litres: 10 }),
+  ];
+  const noGap = odo.summary(complete(), "petrol");
+  check("with every reading filled in the mileage comes back", noGap.kmPerLitre === 30, String(noGap.kmPerLitre));
+  check("over the same distance", noGap.km === 600 && noGap.skippedCount === 0);
+
+  /* An entry with no reading OUTSIDE the measured stretch — the latest fill,
+     before the next reading exists — must not spoil anything behind it. */
+  const trailing = odo.summary([...complete(), fill("2026-09-25", undefined, { id: "latest" })], "petrol");
+  check("an entry with no reading after the last one changes nothing", trailing.kmPerLitre === 30 && trailing.skippedCount === 0, `${trailing.kmPerLitre} / ${trailing.skippedCount}`);
+
   /* Ordered by the day it happened, NOT by the reading — sorting by the reading
      would shuffle a mistyped one into a position where it looks plausible. */
   const scrambled = [fill("2026-09-15", 800), fill("2026-09-01", 1000)];
@@ -2192,56 +2237,116 @@ console.log("Kilometre readings");
   await click(kmHost.querySelector(".tabbar__add"), "Add button");
   await settle();
 
-  const page = document.querySelector(".page");
+  /* Looked up on each call, not captured: a save closes the page, so a held
+     reference would still answer questions about a form nobody is looking at. */
+  const page = () => document.querySelector(".page");
+  const field = (label) => page().querySelector(`[aria-label="${label}"]`);
   const pick = async (label) => {
-    await click([...page.querySelectorAll(".cat-option")].find((b) => b.textContent.includes(label)), label);
+    await click([...page().querySelectorAll(".cat-option")].find((b) => b.textContent.includes(label)), label);
     await settle(60);
   };
+  const saveButton = () => [...page().querySelectorAll("button")].find((b) => /^save$/i.test(b.textContent.trim()));
 
-  check("an ordinary category asks for no reading", !page.querySelector(".odo"));
+  check("an ordinary category asks for no reading", !page().querySelector(".odo"));
 
   await pick("Petrol");
 
-  const odoField = page.querySelector(".odo");
-  check("a tracking category adds the odometer field", !!odoField);
-  check("and a litres field, for the mileage", !!page.querySelector('[aria-label="Litres filled"]'));
+  check("a tracking category adds the odometer field", !!page().querySelector(".odo"));
+  check("and a litres field, for the mileage", !!field("Litres filled"));
 
   /* The number to beat, on screen before anything is typed — which is the whole
      point when you are standing at the pump looking at the dial. */
-  check("it opens by showing the last reading", /1,000 km/.test(odoField.textContent), odoField.textContent.slice(0, 80));
+  check("it opens by showing the last reading", /1,000 km/.test(page().querySelector(".odo").textContent), page().querySelector(".odo").textContent.slice(0, 80));
 
-  await type(page.querySelector('[aria-label="Odometer reading in kilometres"]'), "1312");
+  await type(field("Odometer reading in kilometres"), "1312");
   await settle(60);
 
-  check("typing a reading answers the distance straight away", /312 km since/.test(page.querySelector(".odo__leg")?.textContent ?? ""), page.querySelector(".odo__leg")?.textContent);
+  check("typing a reading answers the distance straight away", /312 km since/.test(page().querySelector(".odo__leg")?.textContent ?? ""), page().querySelector(".odo__leg")?.textContent);
 
-  await type(page.querySelector('[aria-label="Litres filled"]'), "12.5");
+  await type(field("Litres filled"), "12.5");
   await settle(60);
 
-  check("and the litres turn it into a mileage", /24.96 km\/L/.test(page.querySelector(".odo__leg")?.textContent ?? ""), page.querySelector(".odo__leg")?.textContent);
+  check("and the litres turn it into a mileage", /24.96 km\/L/.test(page().querySelector(".odo__leg")?.textContent ?? ""), page().querySelector(".odo__leg")?.textContent);
 
   /* A lower reading is a typo. Saying so at the moment it is typed is the only
      time it can still be fixed easily. */
-  await type(page.querySelector('[aria-label="Odometer reading in kilometres"]'), "800");
+  await type(field("Odometer reading in kilometres"), "800");
   await settle(60);
 
-  check("a reading below the last one is called out", !!page.querySelector(".odo__leg.is-suspect"), page.querySelector(".odo__leg")?.textContent);
+  check("a reading below the last one is called out", !!page().querySelector(".odo__leg.is-suspect"), page().querySelector(".odo__leg")?.textContent);
 
   /* Switching away takes the fields with it — they belong to the category. */
   await pick("Food");
-  check("switching category takes the fields away again", !page.querySelector(".odo"));
+  check("switching category takes the fields away again", !page().querySelector(".odo"));
 
   await pick("Petrol");
-  await type(page.querySelector('[aria-label="Odometer reading in kilometres"]'), "1312");
-  await type(page.querySelector('[aria-label="Litres filled"]'), "12.5");
-  await type(page.querySelector('[aria-label="Amount"]'), "1200");
+
+  /* Nothing about the reading is required. Someone filling up in a hurry has to
+     be able to save the spend and walk away, so Save stays live with it empty. */
+  await type(field("Odometer reading in kilometres"), "");
+  await type(field("Litres filled"), "");
+  await type(field("Amount"), "900");
   await settle(60);
 
-  await click([...page.querySelectorAll("button")].find((b) => /^save$/i.test(b.textContent.trim())), "Save");
+  check("the reading is optional — Save works without it", !!saveButton() && !saveButton().disabled);
+
+  await click(saveButton(), "Save");
+  await settle(400);
+
+  const bare = (await readStored()).expenses.find((e) => e.amount === 900);
+  check("and the entry is stored with no reading on it", !!bare && !("odometer" in bare), JSON.stringify(bare)?.slice(0, 80));
+
+  /* That skipped entry is then accounted for rather than ignored: the next
+     reading measures across it, so the app refuses a mileage for that stretch
+     instead of crediting one fill with two fills' driving. */
+  await click(kmHost.querySelector(".tabbar__add"), "Add button");
+  await settle();
+
+  await pick("Petrol");
+  await type(field("Odometer reading in kilometres"), "1600");
+  await type(field("Litres filled"), "10");
+  await type(field("Amount"), "1000");
+  await settle(60);
+
+  check("a skipped reading is explained, not silently doubled", /no mileage/.test(page().querySelector(".odo__leg")?.textContent ?? ""), page().querySelector(".odo__leg")?.textContent);
+
+  /* Back out of that one and save a clean pair instead, so the card below has
+     real figures to show. */
+  await click(page().querySelector('[aria-label="Back"]'), "Back");
+  await settle(300);
+
+  await click(kmHost.querySelector(".tabbar__add"), "Add button");
+  await settle();
+
+  await pick("Petrol");
+  await type(field("Odometer reading in kilometres"), "1312");
+  await type(field("Litres filled"), "12.5");
+  await type(field("Amount"), "1200");
+  await settle(60);
+
+  await click(saveButton(), "Save");
   await settle(400);
 
   const stored = (await readStored()).expenses.find((e) => e.odometer === 1312);
   check("the reading is saved with the entry", !!stored && stored.litres === 12.5, JSON.stringify(stored)?.slice(0, 90));
+
+  /* One more, so the run holds both kinds of stretch: the one spanning the entry
+     saved without a reading, and a clean one that can be measured. The card has
+     to report the mileage of the second without borrowing the distance of the
+     first. */
+  await click(kmHost.querySelector(".tabbar__add"), "Add button");
+  await settle();
+
+  await pick("Petrol");
+  await type(field("Odometer reading in kilometres"), "1600");
+  await type(field("Litres filled"), "10");
+  await type(field("Amount"), "1000");
+  await settle(60);
+
+  check("a clean stretch after a skipped one measures normally", /28.8 km\/L/.test(page().querySelector(".odo__leg")?.textContent ?? ""), page().querySelector(".odo__leg")?.textContent);
+
+  await click(saveButton(), "Save");
+  await settle(400);
 
   /* And then it has somewhere to live: the card on Stats. */
   await click([...kmHost.querySelectorAll(".tabbar__btn")].find((b) => b.textContent.includes("Stats")), "Stats tab");
@@ -2249,8 +2354,15 @@ console.log("Kilometre readings");
 
   const card = kmHost.querySelector(".km");
   check("Stats grows a card for the readings", !!card, kmHost.querySelector(".section-title")?.textContent);
-  check("it leads with the distance just covered", /312 km since/.test(card?.textContent ?? ""), card?.textContent?.slice(0, 100));
-  check("and reports the mileage over the run", /km\/L/.test(card?.textContent ?? ""), card?.textContent?.slice(0, 160));
+  check("it leads with the distance just covered", /288 km since/.test(card?.textContent ?? ""), card?.textContent?.slice(0, 100));
+  check("and reports the mileage of the stretch it could measure", /28.8 km\/L/.test(card?.textContent ?? ""), card?.textContent?.slice(0, 200));
+
+  /* Both figures on one card: 600 km covered, but only 288 of it accounted for
+     litre by litre. Saying so is the difference between a mileage that is right
+     and one that merely looks right. */
+  check("the distance counts the stretch it could not", /600 km/.test(card?.textContent ?? ""), card?.textContent?.slice(0, 200));
+
+  check("and the card says why the two differ", /no reading/.test(card?.textContent ?? ""), card?.textContent?.slice(-140));
 
   /* The toggle is the only way in, so the loop has to close: turn it on for a
      category that was not tracking, and that category's entries start asking. */

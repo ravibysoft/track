@@ -57,6 +57,21 @@ export default function KmCard({ category, stats, currency }) {
         </div>
       )}
 
+      {/* The reading is optional, so entries without one are expected. They
+          cost nothing except the mileage over the stretch they sit in, and
+          that is worth saying — otherwise the mileage looks like it is based on
+          all the driving above it, and it is not. */}
+      {stats.skippedCount > 0 && (
+        <p className="km__note">
+          <Icon name="history" size={14} />
+          <span>
+            {stats.skippedCount === 1
+              ? "One entry has no reading, so the stretch around it counts towards the distance but not the mileage."
+              : `${stats.skippedCount} entries have no reading, so the stretches around them count towards the distance but not the mileage.`}
+          </span>
+        </p>
+      )}
+
       {/* A reading that did not go up cannot be measured from, so the figures
           above quietly exclude it. Saying so beats letting the distance look
           short for no visible reason. */}
