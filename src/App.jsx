@@ -352,6 +352,9 @@ export default function App() {
           expense={form.expense}
           initialType={form.type}
           currency={currency}
+          /* For the odometer field: the form works out the distance from the
+             last reading in the same category — see lib/odometer.js. */
+          expenses={expenses}
           onSave={handleSave}
           onDelete={deleteWithUndo}
           onClose={() => closeForm(form.id)}

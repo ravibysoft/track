@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import CategoryIcon from "../components/CategoryIcon.jsx";
 import Icon from "../components/Icon.jsx";
-import { PAYMENT_MODES, categoriesFor, defaultCategoryFor } from "../lib/categories.js";
+import { PAYMENT_MODES, categoriesFor, defaultCategoryFor, getCategory } from "../lib/categories.js";
+import { describeLeg, formatKm, legEndingAt, readings } from "../lib/odometer.js";
 import { FREQUENCIES } from "../lib/recurring.js";
 import { dateWithWeekday, shortDayLabel, todayKey, toKey } from "../lib/dates.js";
 import { formatMoney, parseAmount } from "../lib/money.js";
@@ -19,7 +20,7 @@ function yesterdayKey() {
  *
  * `expense` null means "add"; otherwise the fields are prefilled and Delete appears.
  */
-export default function ExpenseFormPage({ expense, initialType, currency, onSave, onDelete, onClose }) {
+export default function ExpenseFormPage({ expense, initialType, currency, expenses, onSave, onDelete, onClose }) {
   const editing = Boolean(expense);
 
   /* Home has separate Add expense / Add income buttons, so the page can open
@@ -36,6 +37,11 @@ export default function ExpenseFormPage({ expense, initialType, currency, onSave
      that entry alone — the rule is a separate thing, with its own screen. */
   const [repeat, setRepeat] = useState("none");
   const [closing, setClosing] = useState(false);
+
+  /* Kept as text, like the amount: a half-typed "34" must not be read as a
+     reading of 34 km and compared against the last one. */
+  const [odoText, setOdoText] = useState(expense?.odometer ? String(expense.odometer) : "");
+  const [litresText, setLitresText] = useState(expense?.litres ? String(expense.litres) : "");
 
   const amountRef = useRef(null);
   const value = parseAmount(amountText);
@@ -86,6 +92,11 @@ export default function ExpenseFormPage({ expense, initialType, currency, onSave
     date,
     note: note.trim(),
     paymentMode,
+    /* Sent even when the category stopped tracking kilometres, so turning the
+       setting off and editing an old entry does not wipe a reading you took.
+       db.sanitizeEntry drops anything that is not a real number. */
+    odometer: odoText,
+    litres: litresText,
   });
 
   const save = () => {
@@ -104,11 +115,39 @@ export default function ExpenseFormPage({ expense, initialType, currency, onSave
     setRepeat("none");
     setAmountText("");
     setNote("");
+    /* The next fill is a different reading. Carrying this one over would quietly
+       file two entries at the same odometer and make the leg between them 0 km. */
+    setOdoText("");
+    setLitresText("");
     amountRef.current?.focus();
   };
 
   const today = todayKey();
   const yesterday = yesterdayKey();
+
+  /* Only the chosen category decides whether these fields exist, so switching
+     from Petrol to Food takes them away again mid-entry. */
+  const tracksKm = !income && getCategory(categoryId).tracksKm === true;
+
+  /* The answer, live, as the reading is typed: there is no point making someone
+     save and go hunting for it. Null until the reading is a usable number and a
+     previous one exists to measure from. */
+  const leg = tracksKm
+    ? legEndingAt(expenses, {
+        id: expense?.id,
+        categoryId,
+        date,
+        amount: value ?? 0,
+        odometer: odoText,
+        litres: litresText,
+      })
+    : null;
+
+  /* Shown before anything is typed, so the number to beat is already on screen
+     when you are standing at the pump looking at the dial. */
+  const previous = tracksKm
+    ? (readings(expenses, categoryId).filter((e) => e.id !== expense?.id).at(-1) ?? null)
+    : null;
 
   return (
     <div className={`page${closing ? " is-closing" : ""}`} role="dialog" aria-label={`${editing ? "Edit" : "Add"} ${noun}`}>
@@ -234,6 +273,61 @@ export default function ExpenseFormPage({ expense, initialType, currency, onSave
             ))}
           </div>
         </div>
+
+        {/* Odometer — only for a category that tracks kilometres, and placed
+            directly under the picker that turned it on, so it is obvious why it
+            appeared and why it goes away again. */}
+        {tracksKm && (
+          <div className="odo">
+            <div className="form-row">
+              <span className="form-row__label">Odometer</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="34218"
+                value={odoText}
+                maxLength={9}
+                className="num"
+                onChange={(e) => setOdoText(e.target.value.replace(/[^0-9.]/g, ""))}
+                aria-label="Odometer reading in kilometres"
+              />
+              <span className="form-row__unit">km</span>
+            </div>
+
+            {/* Optional on purpose: a service has no litres, and a fill you did
+                not note the litres for still measures the distance. */}
+            <div className="form-row">
+              <span className="form-row__label">Litres</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="Optional"
+                value={litresText}
+                maxLength={6}
+                className="num"
+                onChange={(e) => setLitresText(e.target.value.replace(/[^0-9.]/g, ""))}
+                aria-label="Litres filled"
+              />
+              <span className="form-row__unit">L</span>
+            </div>
+
+            {leg ? (
+              <p className={`odo__leg${leg.suspect ? " is-suspect" : ""}`} role="status">
+                <Icon name={leg.suspect ? "alert" : "stats"} size={15} />
+                <span>{describeLeg(leg)}</span>
+              </p>
+            ) : (
+              <p className="odo__leg is-quiet">
+                <Icon name="history" size={15} />
+                <span>
+                  {previous
+                    ? `Last reading: ${formatKm(previous.odometer)} on ${shortDayLabel(previous.date)}`
+                    : "First reading for this category — the next one gives you the distance."}
+                </span>
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Note */}
         <div className="form-row">

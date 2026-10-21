@@ -225,6 +225,7 @@ function CategoryEditor({ category, kind, currency, usedBy, onSave, onToggleHidd
   const [budgetText, setBudgetText] = useState(
     category?.budget > 0 ? String(category.budget) : "",
   );
+  const [tracksKm, setTracksKm] = useState(category?.tracksKm === true);
 
   const isExpense = (category?.kind ?? kind) === "expense";
 
@@ -250,6 +251,7 @@ function CategoryEditor({ category, kind, currency, usedBy, onSave, onToggleHidd
               kind: category?.kind ?? kind,
               hidden: category?.hidden ?? false,
               budget: isExpense ? (parseAmount(budgetText) ?? 0) : 0,
+              tracksKm: isExpense && tracksKm,
             });
             close();
           }}
@@ -325,6 +327,30 @@ function CategoryEditor({ category, kind, currency, usedBy, onSave, onToggleHidd
             Its own bar on the Total tab, alongside the month's overall budget.
           </span>
         </label>
+      )}
+
+      {/* Per category rather than per app: only a handful of things you pay for
+          happen at a reading on a dial. Spending only — income has no odometer. */}
+      {isExpense && (
+        <div className="setting-row">
+          <span className="grow setting-row__text">
+            <span className="setting-row__label">Track kilometres</span>
+            <span className="setting-row__hint">
+              Asks for the reading each time, then works out the distance between
+              them — fill to fill for petrol, service to service for a service.
+            </span>
+          </span>
+          <button
+            type="button"
+            className={`toggle${tracksKm ? " is-on" : ""}`}
+            role="switch"
+            aria-checked={tracksKm}
+            aria-label="Track kilometres"
+            onClick={() => setTracksKm(!tracksKm)}
+          >
+            <span className="toggle__knob" />
+          </button>
+        </div>
       )}
 
       {category && (

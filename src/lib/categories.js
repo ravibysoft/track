@@ -70,7 +70,7 @@ export const CATEGORY_ICONS = [
 ];
 
 export function defaultCategories() {
-  return BUILT_IN_CATEGORIES.map((c) => ({ ...c, icon: c.id, hidden: false, budget: 0 }));
+  return BUILT_IN_CATEGORIES.map((c) => ({ ...c, icon: c.id, hidden: false, budget: 0, tracksKm: false }));
 }
 
 /** Spending categories carrying a limit of their own, in list order. */
@@ -124,6 +124,10 @@ export function normalizeCategories(raw) {
       hidden: item.hidden === true,
       // 0 means "no limit of its own"; income categories never carry one.
       budget: cleanBudget(item.budget),
+      /* Asks each of this category's entries for a kilometre reading — petrol,
+         a service. Spending only: money coming in has no odometer. See
+         lib/odometer.js for what the readings are turned into. */
+      tracksKm: item.tracksKm === true && item.kind !== "income",
     });
   }
 

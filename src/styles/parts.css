@@ -2645,3 +2645,136 @@
   font-weight: 600;
   color: var(--text-dim);
 }
+
+/* ---------- Kilometre readings ----------
+   An odometer field on the form, and what the readings came to on Stats. The
+   maths and the wording are in lib/odometer.js; these only lay it out. */
+
+.form-row__unit {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.odo {
+  margin-top: var(--sp-4);
+}
+
+/* The answer to the question the fields above just asked, so it sits tight
+   under them rather than floating as a separate block. */
+.odo__leg {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--accent);
+}
+
+.odo__leg svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+/* Nothing to report yet: still worth reading, not worth announcing. */
+.odo__leg.is-quiet {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+.odo__leg.is-suspect {
+  color: var(--danger);
+}
+
+.km__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.km__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 680;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The latest reading, right of the name: the number you would check the card
+   for at a glance. */
+.km__reading {
+  flex: none;
+  font-size: 13.5px;
+  font-weight: 620;
+  color: var(--text-dim);
+}
+
+.km__lead {
+  margin-top: var(--sp-3);
+  font-size: 14.5px;
+  font-weight: 640;
+  letter-spacing: -0.01em;
+  color: var(--accent);
+}
+
+.km__lead.is-quiet {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-faint);
+  letter-spacing: 0;
+}
+
+/* Two columns, so a card with one figure in it does not stretch it across the
+   whole width and a card with four stays two rows deep. */
+.km__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+.km__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.km__label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.km__value {
+  font-size: 15px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.km__warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  font-size: 12px;
+  font-weight: 560;
+  line-height: 1.45;
+  color: var(--danger);
+}
+
+.km__warn svg {
+  flex: none;
+  margin-top: 1px;
+}

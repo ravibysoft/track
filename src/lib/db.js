@@ -12,6 +12,7 @@ import {
   normalizeCategories,
 } from "./categories.js";
 import { isValidKey, monthKeyOf, todayKey } from "./dates.js";
+import { validLitres, validReading } from "./odometer.js";
 import { collectDue, normalizeRules } from "./recurring.js";
 import { DEFAULT_CURRENCY, round2, sum } from "./money.js";
 
@@ -156,6 +157,12 @@ function sanitizeEntry(raw, categories) {
     paymentMode: VALID_MODE.has(raw.paymentMode) ? raw.paymentMode : "cash",
     // Set only on entries a repeating rule posted; see lib/recurring.js.
     ...(typeof raw.ruleId === "string" && raw.ruleId ? { ruleId: raw.ruleId } : {}),
+    /* Kept only when a real reading was given, so an entry from a category that
+       does not track kilometres carries no empty field — and a category switched
+       off keeps its old readings rather than losing them. Validated in
+       lib/odometer.js, which is also the only thing that reads them. */
+    ...(validReading(raw.odometer) !== null ? { odometer: validReading(raw.odometer) } : {}),
+    ...(validLitres(raw.litres) !== null ? { litres: validLitres(raw.litres) } : {}),
     createdAt: typeof raw.createdAt === "string" ? raw.createdAt : now,
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : now,
   };

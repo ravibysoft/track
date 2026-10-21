@@ -5,8 +5,10 @@ import CategoryIcon from "../components/CategoryIcon.jsx";
 import DonutChart from "../components/DonutChart.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import Icon from "../components/Icon.jsx";
+import KmCard from "../components/KmCard.jsx";
 import useThemeColors from "../hooks/useThemeColors.js";
-import { getCategory } from "../lib/categories.js";
+import { allCategories, getCategory } from "../lib/categories.js";
+import { trackedCategories } from "../lib/odometer.js";
 import * as db from "../lib/db.js";
 import {
   currentMonthKey,
@@ -98,6 +100,10 @@ export default function StatsScreen({ onSettings, onToast }) {
   const { expenses, currency } = useExpenses();
   const colors = useThemeColors();
   const [sharing, setSharing] = useState(false);
+
+  /* Readings are read off the whole document, not the period on screen — see
+     KmCard for why. Recomputed only when an entry changes. */
+  const tracked = useMemo(() => trackedCategories(expenses, allCategories()), [expenses]);
 
   const [period, setPeriod] = useState("month");
   const [anchors, setAnchors] = useState(() => ({
@@ -471,6 +477,24 @@ export default function StatsScreen({ onSettings, onToast }) {
               onSelect={setActiveBar}
               format={(n) => formatMoney(n, currency)}
             />
+          </div>
+        </>
+      )}
+
+      {/* Outside the `hasAny` block above and outside the period: readings are
+          lifetime figures, so the card shows up even in a month you happened
+          not to spend in. Nothing appears until a category is set to track
+          kilometres and has a reading. */}
+      {tracked.length > 0 && (
+        <>
+          <div className="section-head">
+            <h2 className="section-title">Kilometres</h2>
+            <span className="section-head__note">All time</span>
+          </div>
+          <div className="stack">
+            {tracked.map(({ category, stats }) => (
+              <KmCard key={category.id} category={category} stats={stats} currency={currency} />
+            ))}
           </div>
         </>
       )}

@@ -2004,6 +2004,294 @@ console.log("Edge-to-edge insets");
   check("centred dialogs centre inside the usable area", /\.dialog-wrap\s*\{[^}]*padding:[^;]*var\(--safe-top\)[^;]*var\(--safe-bottom\)/.test(allCss));
 }
 
+console.log("Kilometre readings");
+
+/* A category can ask its entries for an odometer reading. One reading says
+   nothing; two make a leg, and the leg is the answer — how far, how long, what
+   the fuel returned, what it cost per km. */
+{
+  const odo = await import("../src/lib/odometer.js");
+  const dbm = await import("../src/lib/db.js");
+  const cats = await import("../src/lib/categories.js");
+
+  const fill = (date, odometer, extra = {}) => ({
+    id: `f-${date}-${odometer}`,
+    type: "expense",
+    categoryId: "petrol",
+    paymentMode: "upi",
+    createdAt: `${date}T10:00:00.000Z`,
+    date,
+    note: "",
+    amount: 500,
+    odometer,
+    ...extra,
+  });
+
+  check("one reading is not a leg", odo.legs([fill("2026-09-01", 1000)], "petrol").length === 0);
+
+  const two = [fill("2026-09-01", 1000), fill("2026-09-15", 1312, { litres: 12.5, amount: 1200 })];
+  const leg = odo.legs(two, "petrol")[0];
+
+  check("two readings give the distance between them", leg.km === 312, String(leg.km));
+  check("and the days between them", leg.days === 14, String(leg.days));
+
+  /* Tank to tank: the fuel bought at the END of a leg is what carried you along
+     it. Taking the litres from the start instead would report the previous
+     fill's mileage against this one's distance. */
+  check("the mileage comes from the fill that ends the leg", leg.kmPerLitre === 24.96, String(leg.kmPerLitre));
+
+  check("and the cost per km from its amount", leg.costPerKm === 3.85, String(leg.costPerKm));
+
+  /* No litres is the normal case for a service, and for a fill nobody noted. */
+  const dry = odo.legs([fill("2026-09-01", 1000), fill("2026-09-15", 1312)], "petrol")[0];
+  check("a leg with no litres still measures the distance", dry.km === 312 && dry.kmPerLitre === null);
+
+  /* An odometer only goes one way, so a lower reading is a typo, not a journey
+     backwards. Reporting −200 km would be worse than saying nothing. */
+  const back = odo.legs([fill("2026-09-01", 1000), fill("2026-09-15", 800)], "petrol")[0];
+  check("a reading that goes backwards is refused, not negated", back.km === null && back.suspect === true);
+  check("and nothing is derived from it", back.kmPerLitre === null && back.costPerKm === null);
+
+  /* Ordered by the day it happened, NOT by the reading — sorting by the reading
+     would shuffle a mistyped one into a position where it looks plausible. */
+  const scrambled = [fill("2026-09-15", 800), fill("2026-09-01", 1000)];
+  check("readings are ordered by date, not by value", odo.readings(scrambled, "petrol")[0].odometer === 1000);
+  check("so a typo still shows up as one", odo.legs(scrambled, "petrol")[0].suspect === true);
+
+  /* The one decision the whole design rests on: legs never cross categories.
+     That is what lets Petrol measure fill-to-fill and Service measure
+     service-to-service without the code knowing which it is doing — and how a
+     bike and a car stay apart, as two categories. */
+  const mixed = [
+    fill("2026-09-01", 1000),
+    fill("2026-09-20", 1500),
+    fill("2026-09-10", 60000, { id: "s1", categoryId: "service", amount: 3000 }),
+    fill("2026-09-25", 64000, { id: "s2", categoryId: "service", amount: 2500 }),
+  ];
+  check("legs never cross categories", odo.legs(mixed, "petrol")[0].km === 500, String(odo.legs(mixed, "petrol")[0].km));
+  check("so a service measures service to service", odo.legs(mixed, "service")[0].km === 4000, String(odo.legs(mixed, "service")[0].km));
+  check("and two vehicles stay apart as two categories", odo.legs(mixed, "petrol").length === 1 && odo.legs(mixed, "service").length === 1);
+
+  /* Totals divided by totals, not the mean of each leg's own figure: a 100 km
+     leg and a 400 km leg must not count equally towards the mileage. */
+  const weighted = [
+    fill("2026-09-01", 1000),
+    fill("2026-09-05", 1100, { id: "w1", litres: 10, amount: 1000 }),
+    fill("2026-09-20", 1500, { id: "w2", litres: 20, amount: 2000 }),
+  ];
+  const stats = odo.summary(weighted, "petrol");
+  check("mileage is weighted by distance, not averaged per leg", stats.kmPerLitre === 16.67, `${stats.kmPerLitre} (mean of ratios would be 15)`);
+  check("the distance is the sum of the legs", stats.km === 500, String(stats.km));
+  check("cost per km spans the whole run", stats.costPerKm === 6, String(stats.costPerKm));
+  check("and the latest leg is the one it leads with", stats.latest.km === 400, String(stats.latest.km));
+
+  /* A suspect leg is excluded from the figures but still counted, so the card
+     can say why the distance looks short. */
+  const withTypo = odo.summary([...weighted, fill("2026-09-22", 900, { id: "w3" })], "petrol");
+  check("a suspect leg is left out of the totals", withTypo.km === 500, String(withTypo.km));
+  check("but it is counted so the screen can say so", withTypo.suspectCount === 1, String(withTypo.suspectCount));
+
+  check("the last reading is the newest one", withTypo.lastReading === 900, String(withTypo.lastReading));
+
+  /* What the form asks: the leg ending at the entry being typed. */
+  const typing = odo.legEndingAt(two, { id: "draft", categoryId: "petrol", date: "2026-09-20", amount: 600, odometer: "1500", litres: "" });
+  check("the form can ask about an entry it has not saved", typing.km === 188, String(typing.km));
+
+  /* Editing must compare against the neighbour, never against itself. */
+  const editing = odo.legEndingAt(two, { ...two[1], odometer: 1400 });
+  check("editing a reading compares it against the one before it", editing.km === 400 && editing.from.id === two[0].id, String(editing.km));
+
+  /* An old entry edited in the middle of the run measures from ITS neighbour,
+     not from the newest reading in the list. */
+  const middle = odo.legEndingAt(weighted, { ...weighted[1], odometer: 1150 });
+  check("an older entry measures from its own neighbour", middle.from.odometer === 1000 && middle.km === 150, String(middle.km));
+
+  check("the first reading of all has nothing to measure from", odo.legEndingAt(two, { ...two[0] }) === null);
+
+  /* ---- Stored, so a reading survives a reopen and a backup ---- */
+  const saved = dbm.migrate({ expenses: [{ amount: 1200, categoryId: "petrol", date: "2026-09-15", odometer: "1312.4", litres: "12.5" }] });
+  check("a reading is kept in the document", saved.expenses[0].odometer === 1312.4, JSON.stringify(saved.expenses[0]).slice(0, 90));
+  check("and so are the litres", saved.expenses[0].litres === 12.5);
+
+  /* Junk must not reach the maths: a leg built from "lots" is worse than no leg. */
+  const junk = dbm.migrate({
+    expenses: [
+      { id: "j1", amount: 100, categoryId: "petrol", date: "2026-09-15", odometer: "lots" },
+      { id: "j2", amount: 100, categoryId: "petrol", date: "2026-09-16", odometer: -40 },
+      { id: "j3", amount: 100, categoryId: "petrol", date: "2026-09-17", odometer: 9_000_000 },
+      { id: "j4", amount: 100, categoryId: "petrol", date: "2026-09-18", odometer: 5000, litres: 900 },
+    ],
+  });
+  const kept = junk.expenses.filter((e) => "odometer" in e);
+  check("a reading that is not a number is dropped", !junk.expenses.find((e) => e.id === "j1")?.odometer);
+  check("so is a negative one", !junk.expenses.find((e) => e.id === "j2")?.odometer);
+  check("and one no vehicle has done", !junk.expenses.find((e) => e.id === "j3")?.odometer);
+  check("a tank nobody has is dropped, keeping the reading", kept.length === 1 && !junk.expenses.find((e) => e.id === "j4")?.litres);
+
+  /* An entry from a category that does not track km carries no empty field. */
+  const plain = dbm.migrate({ expenses: [{ amount: 50, categoryId: "food", date: "2026-09-15" }] });
+  check("an ordinary entry carries no reading at all", !("odometer" in plain.expenses[0]) && !("litres" in plain.expenses[0]));
+
+  /* ---- The flag lives on the category ---- */
+  const list = cats.normalizeCategories([
+    { id: "petrol", label: "Petrol", kind: "expense", tracksKm: true },
+    { id: "salary", label: "Salary", kind: "income", tracksKm: true },
+    { id: "food", label: "Food", kind: "expense" },
+  ]);
+  check("a category can be set to track kilometres", list.find((c) => c.id === "petrol").tracksKm === true);
+  check("income never can — there is no odometer on money coming in", list.find((c) => c.id === "salary").tracksKm === false);
+  check("and no category tracks it unless asked", list.find((c) => c.id === "food").tracksKm === false);
+  check("built-ins start out not tracking", cats.defaultCategories().every((c) => c.tracksKm === false));
+
+  /* Stats only shows a card for a tracking category that has a reading. */
+  const tracked = odo.trackedCategories(two, list);
+  check("Stats picks up a tracking category with readings", tracked.length === 1 && tracked[0].category.id === "petrol");
+  check("and shows nothing for one with none", odo.trackedCategories([], list).length === 0);
+
+  /* Readings must not be lost in a backup — they are part of the entry. */
+  const { buildJson: toJson } = await import("../src/lib/backup.js");
+  check("a reading travels in a backup", /1312.4/.test(toJson(saved)));
+
+  /* ---- Wording, which is where a wrong unit would show up ---- */
+  check("a reading reads as kilometres", odo.formatKm(34218) === "34,218 km", odo.formatKm(34218));
+  check("and loses false precision above a thousand", odo.formatKm(34218.4) === "34,218 km", odo.formatKm(34218.4));
+  check("a missing one says so rather than claiming zero", odo.formatKm(null) === "—");
+  check("mileage carries its unit", odo.formatMileage(24.96) === "24.96 km/L", odo.formatMileage(24.96));
+  check("a leg says what it measured", /312 km since/.test(odo.describeLeg(leg)), odo.describeLeg(leg));
+  check("and a suspect one asks for the reading to be checked", /should be higher/.test(odo.describeLeg(back)), odo.describeLeg(back));
+}
+
+/* On the screen: the fields belong to the category, so they appear and go away
+   with it, and the distance is answered while the reading is still being typed
+   rather than after a save and a hunt for it. */
+{
+  await clearStored();
+
+  await seedDoc({
+    settings: {
+      onboarded: true,
+      categories: [{ id: "petrol", label: "Petrol", kind: "expense", icon: "travel", tracksKm: true }],
+    },
+    expenses: [
+      {
+        id: "first-fill", type: "expense", amount: 1000, categoryId: "petrol",
+        date: "2026-09-01", note: "", paymentMode: "upi", odometer: 1000, litres: 10,
+        createdAt: "2026-09-01T10:00:00.000Z", updatedAt: "2026-09-01T10:00:00.000Z",
+      },
+    ],
+  });
+
+  const kmHost = document.createElement("div");
+  document.body.appendChild(kmHost);
+  const kmRoot = createRoot(kmHost);
+  await act(async () => {
+    kmRoot.render(createElement(StrictMode, null, createElement(ExpenseProvider, null, createElement(App))));
+  });
+  await settle();
+
+  await click(kmHost.querySelector(".tabbar__add"), "Add button");
+  await settle();
+
+  const page = document.querySelector(".page");
+  const pick = async (label) => {
+    await click([...page.querySelectorAll(".cat-option")].find((b) => b.textContent.includes(label)), label);
+    await settle(60);
+  };
+
+  check("an ordinary category asks for no reading", !page.querySelector(".odo"));
+
+  await pick("Petrol");
+
+  const odoField = page.querySelector(".odo");
+  check("a tracking category adds the odometer field", !!odoField);
+  check("and a litres field, for the mileage", !!page.querySelector('[aria-label="Litres filled"]'));
+
+  /* The number to beat, on screen before anything is typed — which is the whole
+     point when you are standing at the pump looking at the dial. */
+  check("it opens by showing the last reading", /1,000 km/.test(odoField.textContent), odoField.textContent.slice(0, 80));
+
+  await type(page.querySelector('[aria-label="Odometer reading in kilometres"]'), "1312");
+  await settle(60);
+
+  check("typing a reading answers the distance straight away", /312 km since/.test(page.querySelector(".odo__leg")?.textContent ?? ""), page.querySelector(".odo__leg")?.textContent);
+
+  await type(page.querySelector('[aria-label="Litres filled"]'), "12.5");
+  await settle(60);
+
+  check("and the litres turn it into a mileage", /24.96 km\/L/.test(page.querySelector(".odo__leg")?.textContent ?? ""), page.querySelector(".odo__leg")?.textContent);
+
+  /* A lower reading is a typo. Saying so at the moment it is typed is the only
+     time it can still be fixed easily. */
+  await type(page.querySelector('[aria-label="Odometer reading in kilometres"]'), "800");
+  await settle(60);
+
+  check("a reading below the last one is called out", !!page.querySelector(".odo__leg.is-suspect"), page.querySelector(".odo__leg")?.textContent);
+
+  /* Switching away takes the fields with it — they belong to the category. */
+  await pick("Food");
+  check("switching category takes the fields away again", !page.querySelector(".odo"));
+
+  await pick("Petrol");
+  await type(page.querySelector('[aria-label="Odometer reading in kilometres"]'), "1312");
+  await type(page.querySelector('[aria-label="Litres filled"]'), "12.5");
+  await type(page.querySelector('[aria-label="Amount"]'), "1200");
+  await settle(60);
+
+  await click([...page.querySelectorAll("button")].find((b) => /^save$/i.test(b.textContent.trim())), "Save");
+  await settle(400);
+
+  const stored = (await readStored()).expenses.find((e) => e.odometer === 1312);
+  check("the reading is saved with the entry", !!stored && stored.litres === 12.5, JSON.stringify(stored)?.slice(0, 90));
+
+  /* And then it has somewhere to live: the card on Stats. */
+  await click([...kmHost.querySelectorAll(".tabbar__btn")].find((b) => b.textContent.includes("Stats")), "Stats tab");
+  await act(async () => { await new Promise((r) => setTimeout(r, 500)); });
+
+  const card = kmHost.querySelector(".km");
+  check("Stats grows a card for the readings", !!card, kmHost.querySelector(".section-title")?.textContent);
+  check("it leads with the distance just covered", /312 km since/.test(card?.textContent ?? ""), card?.textContent?.slice(0, 100));
+  check("and reports the mileage over the run", /km\/L/.test(card?.textContent ?? ""), card?.textContent?.slice(0, 160));
+
+  /* The toggle is the only way in, so the loop has to close: turn it on for a
+     category that was not tracking, and that category's entries start asking. */
+  await click(kmHost.querySelector('[aria-label="Settings"]'), "Settings gear");
+  await settle();
+
+  await click([...kmHost.querySelectorAll(".setting-row")].find((b) => /manage categories/i.test(b.textContent)), "Manage categories");
+  await settle();
+
+  await click([...document.querySelectorAll(".cat-row__main")].find((b) => /food/i.test(b.textContent)), "Food");
+  await settle();
+
+  const toggle = document.querySelector('[aria-label="Track kilometres"]');
+  check("a category can be set to track kilometres from its editor", !!toggle);
+  check("and starts out off", toggle?.getAttribute("aria-checked") === "false", toggle?.getAttribute("aria-checked"));
+
+  await click(toggle, "Track kilometres");
+  await click([...document.querySelectorAll(".sheet__foot button")].find((b) => /save changes/i.test(b.textContent)), "Save changes");
+  await settle(400);
+
+  const foodNow = (await readStored()).settings.categories.find((c) => c.id === "food");
+  check("the setting is saved on the category", foodNow?.tracksKm === true, JSON.stringify(foodNow));
+
+  await click(document.querySelector('.page__bar [aria-label="Back"]'), "Back");
+  await settle();
+
+  await click(kmHost.querySelector(".tabbar__add"), "Add button");
+  await settle();
+
+  await click([...document.querySelectorAll(".cat-option")].find((b) => b.textContent.includes("Food")), "Food");
+  await settle(60);
+
+  check("so its entries now ask for a reading too", !!document.querySelector(".page .odo"));
+
+  await act(async () => kmRoot.unmount());
+  kmHost.remove();
+  await clearStored();
+}
+
+console.log("");
+
 console.log("Sliding indicators");
 
 /* Every tab control in the app marks the active option with ONE element that
